@@ -126,6 +126,13 @@ impl Store {
             .optional().map_err(|e| e.to_string())
     }
 
+    pub fn drop_chapter(&self, book_id: &str, item_id: &str) -> Result<(), String> {
+        self.conn
+            .execute("DELETE FROM chapters WHERE book_id=?1 AND item_id=?2", params![book_id, item_id])
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
     pub fn list_books(&self) -> Result<Vec<BookRow>, String> {
         let mut stmt = self
             .conn

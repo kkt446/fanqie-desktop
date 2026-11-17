@@ -258,6 +258,12 @@ async fn directory(app: AppHandle, book_id: String, account_id: Option<String>) 
     }).await
 }
 
+/// Cached teaser snippets (one-page chapters) must not masquerade as full text:
+/// refetch short entries and reject server teasers of clearly longer chapters.
+fn looks_like_preview(text_chars: usize, word_count: i64) -> bool {
+    word_count >= 500 && (text_chars as i64) * 2 < word_count
+}
+
 #[tauri::command]
 async fn chapter(
     app: AppHandle,
@@ -269,11 +275,17 @@ async fn chapter(
         let mut a = st.accounts.lock().unwrap();
         let id = a.route(&book_id, account_id.as_deref())?;
         if let Some((title, text)) = a.sessions[&id].store.get_chapter_for_book(&book_id, &item_id)? {
-            return Ok(serde_json::json!({"item_id":item_id,"book_id":book_id,"title":title,"text":text,"need_pay":false,"is_lock":false,"cached":true}));
+            if text.chars().count() >= 300 {
+                return Ok(serde_json::json!({"item_id":item_id,"book_id":book_id,"title":title,"text":text,"need_pay":false,"is_lock":false,"cached":true}));
+            }
+            let _ = a.sessions[&id].store.drop_chapter(&book_id, &item_id);
         }
         a.with_session(&id, |c, store| {
             let ch = c.chapter(&item_id)?;
             if ch.book_id != book_id { return Err("章节与图书不匹配".into()); }
+            if !ch.need_pay && !ch.is_lock && looks_like_preview(ch.text.chars().count(), ch.word_count) {
+                return Err("本章只返回了试读片段，当前账号可能没有完整阅读权限，请在官方渠道确认后重试".into());
+            }
             if !ch.need_pay && !ch.is_lock { store.cache_chapter(&ch.item_id, &book_id, &ch.title, &ch.text)?; }
             Ok(serde_json::to_value(ch).unwrap_or_default())
         })
@@ -922,5 +934,13 @@ mod tests {
     fn fallback_reports_the_first_failure() {
         let error = try_register_available("Alt+Z", |_| Err("HotKey already registered".into())).unwrap_err();
         assert!(error.contains("already registered"));
+    }
+
+    #[test]
+    fn teaser_snippets_are_not_full_chapters() {
+        assert!(looks_like_preview(177, 1936));
+        assert!(!looks_like_preview(2263, 2047));
+        assert!(!looks_like_preview(120, 0));
+        assert!(!looks_like_preview(120, 240));
     }
 }

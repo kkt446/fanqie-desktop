@@ -100,6 +100,7 @@ pub struct Chapter {
     pub need_pay: bool,
     pub is_lock: bool,
     pub order: i64,
+    pub word_count: i64,
     pub next_item_id: Option<String>,
     pub pre_item_id: Option<String>,
 }
@@ -561,9 +562,18 @@ impl Client {
             need_pay: num("needPay") != 0,
             is_lock: num("isChapterLock") != 0,
             order: num("realChapterOrder"),
+            word_count: chapter_word_count(&cd),
             next_item_id: str_opt("nextItemId"),
             pre_item_id: str_opt("preItemId"),
         })
+    }
+}
+
+fn chapter_word_count(cd: &Value) -> i64 {
+    match cd.get("chapterWordNumber") {
+        Some(Value::Number(n)) => n.as_i64().unwrap_or(0),
+        Some(Value::String(s)) => s.trim().parse().unwrap_or(0),
+        _ => 0,
     }
 }
 
