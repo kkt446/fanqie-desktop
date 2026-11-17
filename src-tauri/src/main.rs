@@ -728,6 +728,9 @@ fn main() {
     let accounts = Accounts::open(data_dir()).expect("open account storage");
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            show_main_window(app);
+        }))
         .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(|app, shortcut, event| {
             use tauri_plugin_global_shortcut::ShortcutState;
             if event.state != ShortcutState::Pressed || smoke_mode() { return; }
@@ -790,7 +793,7 @@ fn main() {
             } else {
                 if let Some(icon) = app.default_window_icon().cloned() {
                     let show_item = tauri::menu::MenuItem::with_id(app, "tray-show", "显示主窗口", true, None::<&str>)?;
-                    let quit_item = tauri::menu::MenuItem::with_id(app, "tray-quit", "彻底关闭", true, None::<&str>)?;
+                    let quit_item = tauri::menu::MenuItem::with_id(app, "tray-quit", "关闭", true, None::<&str>)?;
                     let sep = tauri::menu::PredefinedMenuItem::separator(app)?;
                     let menu = tauri::menu::Menu::with_items(app, &[&show_item, &sep, &quit_item])?;
                     tauri::tray::TrayIconBuilder::with_id("main")
