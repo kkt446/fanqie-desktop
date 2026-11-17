@@ -235,21 +235,76 @@ fn find_sfnt_table<'a>(sfnt: &'a [u8], tag: &[u8; 4]) -> Option<&'a [u8]> {
     None
 }
 
+fn sfnt_bytes(data: &[u8]) -> Result<Vec<u8>, String> {
+    if data.len() >= 4 && &data[0..4] == b"wOFF" {
+        woff_to_sfnt(data)
+    } else if data.len() >= 4 && &data[0..4] == b"wOF2" {
+        Err("woff2 not supported; request the .woff url".into())
+    } else {
+        Ok(data.to_vec())
+    }
+}
+
+/// Deterministic hash of a glyph outline. Fanqie ships several fonts that
+/// contain the same 362 outlines under different PUA assignments; matching
+/// outlines lets us carry the verified name->char table across them.
+struct OutlineHasher(u64);
+
+impl OutlineHasher {
+    fn mix(&mut self, tag: u8, pts: &[f32]) {
+        self.0 ^= tag as u64;
+        self.0 = self.0.wrapping_mul(0x100000001b3);
+        for v in pts {
+            self.0 ^= v.to_bits() as u64;
+            self.0 = self.0.wrapping_mul(0x100000001b3);
+        }
+    }
+}
+
+impl ttf_parser::OutlineBuilder for OutlineHasher {
+    fn move_to(&mut self, x: f32, y: f32) {
+        self.mix(1, &[x, y]);
+    }
+    fn line_to(&mut self, x: f32, y: f32) {
+        self.mix(2, &[x, y]);
+    }
+    fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
+        self.mix(3, &[x1, y1, x, y]);
+    }
+    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
+        self.mix(4, &[x1, y1, x2, y2, x, y]);
+    }
+    fn close(&mut self) {
+        self.mix(5, &[]);
+    }
+}
+
+/// (PUA char, outline hash) for every mapped glyph of a font.
+fn pua_outline_hashes(data: &[u8]) -> Result<Vec<(char, u64)>, String> {
+    let bytes = sfnt_bytes(data)?;
+    let face = ttf_parser::Face::parse(&bytes, 0).map_err(|e| format!("font parse: {e:?}"))?;
+    let mut out = Vec::new();
+    for cp in 0xE000u32..=0xF8FF {
+        let Some(c) = char::from_u32(cp) else { continue };
+        let Some(gid) = face.glyph_index(c) else { continue };
+        let mut h = OutlineHasher(0xcbf29ce484222325);
+        if face.outline_glyph(gid, &mut h).is_some() {
+            out.push((c, h.0));
+        }
+    }
+    if out.is_empty() {
+        return Err("no PUA outlines".into());
+    }
+    Ok(out)
+}
+
 impl FontDecoder {
     /// Build decoder from raw font bytes (WOFF1 converted, or plain sfnt).
     pub fn from_font_bytes(data: &[u8]) -> Result<Self, String> {
-        let sfnt;
-        let bytes = if data.len() >= 4 && &data[0..4] == b"wOFF" {
-            sfnt = woff_to_sfnt(data)?;
-            sfnt.as_slice()
-        } else if data.len() >= 4 && &data[0..4] == b"wOF2" {
-            return Err("woff2 not supported; request the .woff url".into());
-        } else {
-            data
-        };
-        let face = ttf_parser::Face::parse(bytes, 0).map_err(|e| format!("font parse: {e:?}"))?;
+        let bytes = sfnt_bytes(data)?;
+        let face = ttf_parser::Face::parse(&bytes, 0).map_err(|e| format!("font parse: {e:?}"))?;
         let num_glyphs = face.tables().maxp.number_of_glyphs.get() as usize;
-        let cff_bytes = find_sfnt_table(bytes, b"CFF ").ok_or("no CFF table")?;
+        let cff_bytes = find_sfnt_table(&bytes, b"CFF ").ok_or("no CFF table")?;
         let charset = cff_charset_numbers(cff_bytes, num_glyphs)?;
         let mut mapping = HashMap::new();
         let mut hits = 0usize;
@@ -267,6 +322,31 @@ impl FontDecoder {
         }
         if mapping.is_empty() {
             return Err(format!("no PUA mappings (hits: {hits}, sfnt len: {}, sample: {sample:?})", bytes.len()));
+        }
+        Ok(Self { mapping })
+    }
+
+    /// Decode `active` by matching its glyph outlines against `reference`,
+    /// whose names are known to be covered by the static table.
+    pub fn from_font_pair(active: &[u8], reference: &[u8]) -> Result<Self, String> {
+        let ref_dec = Self::from_font_bytes(reference)?;
+        let mut hash_to_char: HashMap<u64, char> = HashMap::new();
+        for (c, h) in pua_outline_hashes(reference)? {
+            if let Some(ch) = ref_dec.mapping.get(&c) {
+                hash_to_char.insert(h, *ch);
+            }
+        }
+        if hash_to_char.is_empty() {
+            return Err("reference font has no decodable outlines".into());
+        }
+        let mut mapping = HashMap::new();
+        for (c, h) in pua_outline_hashes(active)? {
+            if let Some(ch) = hash_to_char.get(&h) {
+                mapping.insert(c, *ch);
+            }
+        }
+        if mapping.is_empty() {
+            return Err("outline match produced no mappings".into());
         }
         Ok(Self { mapping })
     }

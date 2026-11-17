@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-remember-book"
+description = "Enables the remember_book command without any pre-configured scope."
+commands.allow = ["remember_book"]
+
+[[permission]]
+identifier = "deny-remember-book"
+description = "Denies the remember_book command without any pre-configured scope."
+commands.deny = ["remember_book"]

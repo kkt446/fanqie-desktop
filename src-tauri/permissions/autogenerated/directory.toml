@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-directory"
+description = "Enables the directory command without any pre-configured scope."
+commands.allow = ["directory"]
+
+[[permission]]
+identifier = "deny-directory"
+description = "Denies the directory command without any pre-configured scope."
+commands.deny = ["directory"]

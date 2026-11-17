@@ -51,6 +51,29 @@ impl Store {
         Ok(())
     }
 
+    pub fn remember_book(&self, b: &BookRow) -> Result<(), String> {
+        self.conn
+            .execute(
+                r#"INSERT INTO books(book_id,name,author,thumb,abstract_text,last_item_id,chapter_order,updated_at)
+                   VALUES(?1,?2,?3,?4,?5,?6,?7,?8)
+                   ON CONFLICT(book_id) DO UPDATE SET name=excluded.name,author=excluded.author,
+                     thumb=excluded.thumb,abstract_text=excluded.abstract_text,updated_at=excluded.updated_at"#,
+                params![b.book_id, b.name, b.author, b.thumb, b.abstract_text, b.last_item_id, b.chapter_order, now()],
+            )
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn set_progress(&self, book_id: &str, item_id: &str, chapter_order: i64) -> Result<(), String> {
+        self.conn
+            .execute(
+                "UPDATE books SET last_item_id=?2, chapter_order=?3, updated_at=?4 WHERE book_id=?1",
+                params![book_id, item_id, chapter_order, now()],
+            )
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
     pub fn cache_chapter(&self, item_id: &str, book_id: &str, title: &str, text: &str) -> Result<(), String> {
         self.conn
             .execute(

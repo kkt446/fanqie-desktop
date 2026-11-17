@@ -1,5 +1,22 @@
 {
   "identifier": "default",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "allow-core-ping",
+    "allow-signer-ready",
+    "allow-bridge-deliver",
+    "allow-account",
+    "allow-shelf",
+    "allow-search-books",
+    "allow-book-detail",
+    "allow-directory",
+    "allow-chapter",
+    "allow-remember-book",
+    "allow-local-books",
+    "allow-set-progress",
+    "allow-win-min",
+    "allow-win-max-toggle",
+    "allow-win-close"
+  ]
 }

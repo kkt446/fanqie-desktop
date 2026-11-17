@@ -1,0 +1,9 @@
+{
+  "identifier": "signer",
+  "description": "Allow the hidden fanqie signer page to call bridge commands",
+  "windows": ["signer"],
+  "remote": {
+    "urls": ["https://fanqienovel.com/*", "https://*.fanqienovel.com/*"]
+  },
+  "permissions": ["core:default", "allow-signer-ready", "allow-bridge-deliver"]
+}

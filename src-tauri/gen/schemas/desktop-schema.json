@@ -177,6 +177,186 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables the account command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-account",
+          "markdownDescription": "Enables the account command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the book_detail command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-book-detail",
+          "markdownDescription": "Enables the book_detail command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the bridge_deliver command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-bridge-deliver",
+          "markdownDescription": "Enables the bridge_deliver command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the chapter command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-chapter",
+          "markdownDescription": "Enables the chapter command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the core_ping command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-core-ping",
+          "markdownDescription": "Enables the core_ping command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the directory command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-directory",
+          "markdownDescription": "Enables the directory command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the local_books command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-local-books",
+          "markdownDescription": "Enables the local_books command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the remember_book command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-remember-book",
+          "markdownDescription": "Enables the remember_book command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the search_books command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-search-books",
+          "markdownDescription": "Enables the search_books command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_progress command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-progress",
+          "markdownDescription": "Enables the set_progress command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the shelf command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-shelf",
+          "markdownDescription": "Enables the shelf command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the signer_ready command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-signer-ready",
+          "markdownDescription": "Enables the signer_ready command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the win_close command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-win-close",
+          "markdownDescription": "Enables the win_close command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the win_max_toggle command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-win-max-toggle",
+          "markdownDescription": "Enables the win_max_toggle command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the win_min command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-win-min",
+          "markdownDescription": "Enables the win_min command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the account command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-account",
+          "markdownDescription": "Denies the account command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the book_detail command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-book-detail",
+          "markdownDescription": "Denies the book_detail command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the bridge_deliver command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-bridge-deliver",
+          "markdownDescription": "Denies the bridge_deliver command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the chapter command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-chapter",
+          "markdownDescription": "Denies the chapter command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the core_ping command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-core-ping",
+          "markdownDescription": "Denies the core_ping command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the directory command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-directory",
+          "markdownDescription": "Denies the directory command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the local_books command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-local-books",
+          "markdownDescription": "Denies the local_books command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the remember_book command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-remember-book",
+          "markdownDescription": "Denies the remember_book command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the search_books command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-search-books",
+          "markdownDescription": "Denies the search_books command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_progress command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-progress",
+          "markdownDescription": "Denies the set_progress command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the shelf command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-shelf",
+          "markdownDescription": "Denies the shelf command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the signer_ready command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-signer-ready",
+          "markdownDescription": "Denies the signer_ready command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the win_close command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-win-close",
+          "markdownDescription": "Denies the win_close command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the win_max_toggle command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-win-max-toggle",
+          "markdownDescription": "Denies the win_max_toggle command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the win_min command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-win-min",
+          "markdownDescription": "Denies the win_min command without any pre-configured scope."
+        },
+        {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",
           "type": "string",
           "const": "core:default",
