@@ -463,7 +463,7 @@
   .re-sw { left: 0; bottom: 0; width: 10px; height: 10px; cursor: nesw-resize; }
   .re-se { right: 0; bottom: 0; width: 10px; height: 10px; cursor: nwse-resize; }
   body.win-maxed .resize-edge { display: none; }
-  body.win-maxed #titlebar .tbtns { padding-right: 8px; }
+  body.win-maxed #titlebar .tbtns { padding-right: calc(var(--win-right-bleed, 8px) + 8px); }
 </style>
 </head>
 <body>
@@ -716,6 +716,16 @@
     try {
       const [maxed, full] = await Promise.all([win.isMaximized(), win.isFullscreen()]);
       document.body.classList.toggle("win-maxed", maxed || full);
+      let bleed = 8;
+      if (maxed) {
+        const [pos, size, monitor, scale] = await Promise.all([
+          win.outerPosition(), win.outerSize(), win.currentMonitor(), win.scaleFactor(),
+        ]);
+        if (monitor) {
+          bleed = Math.max(0, (pos.x + size.width - monitor.position.x - monitor.size.width) / scale);
+        }
+      }
+      document.body.style.setProperty("--win-right-bleed", `${bleed}px`);
     } catch (_) {}
   }
   try { win.onResized(syncWindowFrame).catch(() => {}); } catch (_) {}
