@@ -462,6 +462,8 @@
   .re-ne { right: 0; top: 0; width: 10px; height: 10px; cursor: nesw-resize; }
   .re-sw { left: 0; bottom: 0; width: 10px; height: 10px; cursor: nesw-resize; }
   .re-se { right: 0; bottom: 0; width: 10px; height: 10px; cursor: nwse-resize; }
+  body.win-maxed .resize-edge { display: none; }
+  body.win-maxed #titlebar .tbtns { padding-right: 8px; }
 </style>
 </head>
 <body>
@@ -709,6 +711,15 @@
   const TAURI = window.__TAURI__;
   const invoke = TAURI.core.invoke;
   const win = TAURI.window.getCurrentWindow();
+
+  async function syncWindowFrame() {
+    try {
+      const [maxed, full] = await Promise.all([win.isMaximized(), win.isFullscreen()]);
+      document.body.classList.toggle("win-maxed", maxed || full);
+    } catch (_) {}
+  }
+  try { win.onResized(syncWindowFrame).catch(() => {}); } catch (_) {}
+  syncWindowFrame();
 
   const $ = (s) => document.querySelector(s);
   const el = (tag, cls, html) => {
@@ -1530,6 +1541,7 @@
       if (typeof result !== "boolean") throw new Error("全屏接口未返回窗口状态");
       ownedFullscreen = result;
       updateFullscreenControls();
+      syncWindowFrame();
     }).catch(e => { updateFullscreenControls(); toast("切换全屏失败：" + e, true); });
     return fullscreenQueue;
   }

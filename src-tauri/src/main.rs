@@ -13,6 +13,9 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
 use tokio::sync::oneshot;
 
+static QUITTING: AtomicBool = AtomicBool::new(false);
+static HAS_TRAY: AtomicBool = AtomicBool::new(false);
+
 const SIGNER_JS: &str = r#"
 (function () {
   function inv(cmd, payload) {
@@ -559,12 +562,20 @@ fn toggle_main(app: &AppHandle) -> Result<bool, String> {
     } else {
         if smoke_mode() {
             win.set_position(tauri::PhysicalPosition::new(-20000i32, -20000i32)).map_err(|e| e.to_string())?;
-        } else {
+        } else if win.is_minimized().unwrap_or(false) {
             win.unminimize().map_err(|e| e.to_string())?;
         }
         show_main(&win)?;
         if !smoke_mode() { win.set_focus().map_err(|e| e.to_string())?; }
         Ok(true)
+    }
+}
+
+fn show_main_window(app: &AppHandle) {
+    if let Some(win) = app.get_webview_window("main") {
+        if win.is_minimized().unwrap_or(false) { let _ = win.unminimize(); }
+        let _ = win.show();
+        let _ = win.set_focus();
     }
 }
 
@@ -750,6 +761,14 @@ fn main() {
             signer_ready: AtomicBool::new(false),
             seq: AtomicU64::new(0),
         })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "main" && HAS_TRAY.load(Ordering::SeqCst) && !QUITTING.load(Ordering::SeqCst) {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
+        })
         .setup(move |app| {
             let mut w = tauri::WebviewWindowBuilder::new(
                 app,
@@ -759,6 +778,7 @@ fn main() {
             .title("番茄小说")
             .inner_size(1180.0, 760.0)
             .min_inner_size(900.0, 600.0)
+            .background_color(tauri::window::Color(13, 15, 19, 255))
             .decorations(false);
             if smoke {
                 w = w.visible(false).focused(false).skip_taskbar(true);
@@ -767,6 +787,38 @@ fn main() {
             if smoke {
                 win.set_position(tauri::PhysicalPosition::new(-20000i32, -20000i32))?;
                 show_main(&win).map_err(std::io::Error::other)?;
+            } else {
+                if let Some(icon) = app.default_window_icon().cloned() {
+                    let show_item = tauri::menu::MenuItem::with_id(app, "tray-show", "显示主窗口", true, None::<&str>)?;
+                    let quit_item = tauri::menu::MenuItem::with_id(app, "tray-quit", "彻底关闭", true, None::<&str>)?;
+                    let sep = tauri::menu::PredefinedMenuItem::separator(app)?;
+                    let menu = tauri::menu::Menu::with_items(app, &[&show_item, &sep, &quit_item])?;
+                    tauri::tray::TrayIconBuilder::with_id("main")
+                        .icon(icon)
+                        .tooltip("番茄小说")
+                        .menu(&menu)
+                        .show_menu_on_left_click(false)
+                        .on_menu_event(|app, event| match event.id().as_ref() {
+                            "tray-show" => show_main_window(app),
+                            "tray-quit" => {
+                                QUITTING.store(true, Ordering::SeqCst);
+                                app.exit(0);
+                            }
+                            _ => {}
+                        })
+                        .on_tray_icon_event(|tray, event| {
+                            if let tauri::tray::TrayIconEvent::Click {
+                                button: tauri::tray::MouseButton::Left,
+                                button_state: tauri::tray::MouseButtonState::Up,
+                                ..
+                            } = event
+                            {
+                                show_main_window(tray.app_handle());
+                            }
+                        })
+                        .build(app)?;
+                    HAS_TRAY.store(true, Ordering::SeqCst);
+                }
             }
 
             register_boss_key(app.handle(), &mut app.state::<BossKey>().0.lock().unwrap());
