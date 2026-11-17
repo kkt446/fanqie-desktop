@@ -207,10 +207,22 @@
           "markdownDescription": "Enables the book_detail command without any pre-configured scope."
         },
         {
+          "description": "Enables the boss_key_retry command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-boss-key-retry",
+          "markdownDescription": "Enables the boss_key_retry command without any pre-configured scope."
+        },
+        {
           "description": "Enables the boss_key_set_enabled command without any pre-configured scope.",
           "type": "string",
           "const": "allow-boss-key-set-enabled",
           "markdownDescription": "Enables the boss_key_set_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the boss_key_set_shortcut command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-boss-key-set-shortcut",
+          "markdownDescription": "Enables the boss_key_set_shortcut command without any pre-configured scope."
         },
         {
           "description": "Enables the boss_key_smoke_toggle command without any pre-configured scope.",
@@ -387,10 +399,22 @@
           "markdownDescription": "Denies the book_detail command without any pre-configured scope."
         },
         {
+          "description": "Denies the boss_key_retry command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-boss-key-retry",
+          "markdownDescription": "Denies the boss_key_retry command without any pre-configured scope."
+        },
+        {
           "description": "Denies the boss_key_set_enabled command without any pre-configured scope.",
           "type": "string",
           "const": "deny-boss-key-set-enabled",
           "markdownDescription": "Denies the boss_key_set_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the boss_key_set_shortcut command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-boss-key-set-shortcut",
+          "markdownDescription": "Denies the boss_key_set_shortcut command without any pre-configured scope."
         },
         {
           "description": "Denies the boss_key_smoke_toggle command without any pre-configured scope.",

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-boss-key-retry"
+description = "Enables the boss_key_retry command without any pre-configured scope."
+commands.allow = ["boss_key_retry"]
+
+[[permission]]
+identifier = "deny-boss-key-retry"
+description = "Denies the boss_key_retry command without any pre-configured scope."
+commands.deny = ["boss_key_retry"]

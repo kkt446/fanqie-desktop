@@ -31,6 +31,8 @@ fn main() {
                 "win_close",
                 "boss_key_status",
                 "boss_key_set_enabled",
+                "boss_key_set_shortcut",
+                "boss_key_retry",
                 "boss_key_smoke_toggle",
             ]),
         ),

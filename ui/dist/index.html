@@ -317,14 +317,15 @@
   .reader-scroll { flex: 1; overflow: auto; }
   .reader-body {
     max-width: var(--read-width, 720px); margin: 0 auto; padding: 44px 32px 140px;
-    font-family: var(--serif); font-size: var(--read-size, 19px);
-    line-height: var(--read-lh, 1.95); letter-spacing: .01em;
+    font-family: var(--read-font, var(--serif)); font-size: var(--read-size, 19px);
+    line-height: var(--read-lh, 1.95); letter-spacing: var(--read-letter, .2px);
   }
+  .reader.paged.page-anim .reader-body { transition: transform .18s ease; }
   .reader-body h1 {
     font-size: 1.45em; line-height: 1.5; margin: 0 0 34px; font-weight: 650;
     font-family: var(--ui); letter-spacing: .02em;
   }
-  .reader-body p { margin: 0 0 .95em; text-indent: 2em; word-break: break-word; }
+  .reader-body p { margin: 0 0 var(--read-para, .95em); text-indent: var(--read-indent, 2em); word-break: break-word; }
   .reader-nav {
     position: absolute; left: 0; right: 0; bottom: 0; height: 92px;
     display: flex; align-items: center; justify-content: center; gap: 14px;
@@ -402,6 +403,43 @@
   .kv:last-child { border-bottom: 0; }
   .kv span:last-child { color: var(--text); text-align: right; word-break: break-all; }
   .muted { color: var(--text-3); font-size: 12px; line-height: 1.7; }
+  .settings { max-width: 780px; display: flex; flex-direction: column; gap: 14px; padding-bottom: 34px; }
+  .set-group { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 4px 20px; }
+  .set-group h2 { margin: 16px 2px 4px; font-size: 11.5px; font-weight: 600; letter-spacing: .1em; color: var(--text-3); }
+  .set-row { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 46px; padding: 11px 2px; border-top: 1px solid rgba(255,255,255,.05); }
+  .set-group h2 + .set-row { border-top: 0; }
+  .set-label b { display: block; font-size: 13px; font-weight: 500; color: var(--text); }
+  .set-label p { margin: 4px 0 0; max-width: 480px; font-size: 11.5px; line-height: 1.65; color: var(--text-3); overflow-wrap: anywhere; }
+  .set-control { flex: none; display: flex; align-items: center; gap: 8px; }
+  .set-control select, .set-control input[type="number"] {
+    width: 150px; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line-strong);
+    background: var(--panel-2); color: var(--text); font: inherit; font-size: 12.5px;
+  }
+  .set-control input[type="number"] { width: 88px; }
+  .switch { position: relative; width: 42px; height: 24px; flex: none; }
+  .switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  .switch i { position: absolute; inset: 0; border-radius: 12px; background: rgba(255,255,255,.14); transition: background .15s; pointer-events: none; }
+  .switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; }
+  .switch input:checked + i { background: var(--accent); }
+  .switch input:checked + i::after { transform: translateX(18px); }
+  .switch input:focus-visible + i { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .keycap {
+    min-width: 128px; padding: 8px 14px; border-radius: 9px; border: 1px solid var(--line-strong);
+    background: var(--panel-2); color: var(--text); font: inherit; font-size: 12.5px;
+    letter-spacing: .06em; cursor: pointer;
+  }
+  .keycap:hover, .keycap.capturing { border-color: var(--accent); color: #ffb59c; }
+  .set-hint { margin: 6px 2px 8px; font-size: 11.5px; line-height: 1.7; color: var(--text-3); }
+  .bind-list { display: flex; flex-direction: column; }
+  .bind-row { display: flex; align-items: center; gap: 10px; padding: 7px 2px; border-top: 1px solid rgba(255,255,255,.05); }
+  .bind-trigger { flex: 1; font-size: 12.5px; color: var(--text); overflow-wrap: anywhere; }
+  .bind-row select {
+    width: 118px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line-strong);
+    background: var(--panel-2); color: var(--text); font: inherit; font-size: 12px;
+  }
+  .bind-del { border: 0; background: transparent; color: var(--text-3); font: inherit; font-size: 12px; padding: 6px 9px; border-radius: 7px; cursor: pointer; }
+  .bind-del:hover { color: #ff9a80; background: rgba(255,90,54,.09); }
+  .bind-actions { display: flex; gap: 8px; padding: 10px 2px 16px; }
 
   .toast-host { position: fixed; right: 22px; bottom: 22px; z-index: 200; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
   .toast {
@@ -600,35 +638,55 @@
       </div>
     </section>
     <section class="view" id="view-settings" style="display:none">
-      <div class="page-head"><h1>设置</h1></div>
-      <div class="cards">
-        <div class="card">
-          <h3>老板键</h3>
-          <div class="kv"><label><input type="checkbox" id="bossEnabled" checked> 启用全局老板键</label><b>Alt+Z</b></div>
-          <p class="muted">在任何应用中按 Alt+Z 隐藏 / 恢复主窗口。若快捷键被其他应用占用，可关闭冲突应用后重试。</p>
-          <p id="bossStatus" role="status" aria-live="polite">正在读取快捷键状态…</p>
-          <button class="btn ghost" id="bossRetry">重试注册</button>
-        </div>
-        <div class="card">
-          <h3>阅读偏好</h3>
-          <div class="kv"><label for="setMode">阅读模式</label><select id="setMode"><option value="paged">分页</option><option value="scroll">滚动</option></select></div>
-          <div class="kv"><label for="setTheme">主题</label><select id="setTheme"><option value="paper">纸白</option><option value="sepia">羊皮</option><option value="night">夜间</option><option value="oled">纯黑</option></select></div>
-          <div class="kv"><label for="setSize">字号</label><input id="setSize" type="number" min="13" max="30" step="1"></div>
-          <div class="kv"><label for="setLh">行距</label><input id="setLh" type="number" min="1.4" max="2.6" step="0.05"></div>
-          <div class="kv"><label for="setWidth">版心宽度</label><select id="setWidth"><option value="620">窄</option><option value="720">适中</option><option value="840">宽</option></select></div>
-          <div class="kv"><label><input id="setClick" type="checkbox"> 左键单击翻页</label></div>
-          <div class="kv"><label><input id="setWheel" type="checkbox"> 滚轮翻页</label></div>
-          <div class="kv"><label><input id="setSwipe" type="checkbox"> 拖动 / 触摸滑动翻页</label></div>
-          <div class="kv"><label><input id="setKeyboard" type="checkbox"> 键盘翻页</label></div>
-          <div class="kv"><span>离线缓存</span><span>已读章节自动缓存到 SQLite</span></div>
-          <p class="muted" style="margin:14px 0 0">阅读进度与章节缓存均保存在本机，断网时可继续阅读已读章节。</p>
-        </div>
-        <div class="card">
-          <h3>关于</h3>
-          <div class="kv"><span>应用</span><span>番茄小说 桌面版 v0.1.0</span></div>
-          <div class="kv"><span>技术栈</span><span>Tauri 2 · Rust · WebView2</span></div>
-          <p class="muted" style="margin:14px 0 0">非官方客户端，仅用于个人学习研究；内容版权归番茄小说及作者所有。</p>
-        </div>
+      <div class="page-head"><h1>设置</h1><div class="sub">改动会自动保存</div></div>
+      <div class="settings">
+        <section class="set-group">
+          <h2>老板键</h2>
+          <div class="set-row">
+            <div class="set-label"><b>启用老板键</b><p>在任意应用中隐藏或恢复主窗口。</p></div>
+            <label class="switch"><input type="checkbox" id="bossEnabled" checked aria-label="启用老板键"><i></i></label>
+          </div>
+          <div class="set-row">
+            <div class="set-label"><b>快捷键</b><p id="bossStatus" role="status" aria-live="polite">正在读取快捷键状态…</p></div>
+            <div class="set-control">
+              <button class="keycap" id="bossKeyBtn" title="点击后按下新的组合键">Alt + Z</button>
+              <button class="btn ghost" id="bossRetry">重试</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="set-group">
+          <h2>阅读偏好</h2>
+          <div class="set-row"><div class="set-label"><b>阅读模式</b></div><div class="set-control"><select id="setMode"><option value="paged">分页</option><option value="scroll">滚动</option></select></div></div>
+          <div class="set-row"><div class="set-label"><b>主题</b></div><div class="set-control"><select id="setTheme"><option value="paper">纸白</option><option value="sepia">羊皮</option><option value="night">夜间</option><option value="oled">纯黑</option></select></div></div>
+          <div class="set-row"><div class="set-label"><b>字体</b></div><div class="set-control"><select id="setFont"><option value="serif">宋体</option><option value="sans">黑体</option><option value="kai">楷体</option></select></div></div>
+          <div class="set-row"><div class="set-label"><b>字号</b><p>13 至 30 像素</p></div><div class="set-control"><input id="setSize" type="number" min="13" max="30" step="1"></div></div>
+          <div class="set-row"><div class="set-label"><b>行距</b></div><div class="set-control"><input id="setLh" type="number" min="1.4" max="2.6" step="0.05"></div></div>
+          <div class="set-row"><div class="set-label"><b>段间距</b></div><div class="set-control"><input id="setPara" type="number" min="0.3" max="2" step="0.1"></div></div>
+          <div class="set-row"><div class="set-label"><b>首行缩进</b><p>段首缩进两个字</p></div><label class="switch"><input type="checkbox" id="setIndent" aria-label="首行缩进"><i></i></label></div>
+          <div class="set-row"><div class="set-label"><b>字间距</b><p>单位为像素</p></div><div class="set-control"><input id="setLetter" type="number" min="0" max="3" step="0.1"></div></div>
+          <div class="set-row"><div class="set-label"><b>版心宽度</b></div><div class="set-control"><select id="setWidth"><option value="620">窄</option><option value="720">适中</option><option value="840">宽</option></select></div></div>
+          <div class="set-row"><div class="set-label"><b>翻页动画</b><p>翻页时短暂滑动过渡</p></div><label class="switch"><input type="checkbox" id="setAnimate" aria-label="翻页动画"><i></i></label></div>
+          <div class="set-row"><div class="set-label"><b>打开即全屏</b><p>进入阅读时自动切换到全屏，仍可按 Esc 退出</p></div><label class="switch"><input type="checkbox" id="setOpenFull" aria-label="打开阅读时全屏"><i></i></label></div>
+          <div class="set-row"><div class="set-label"><b>离线缓存</b></div><div class="set-control"><span style="font-size:12px;color:var(--text-2)">已读章节自动缓存</span></div></div>
+        </section>
+
+        <section class="set-group">
+          <h2>翻页操作</h2>
+          <p class="set-hint">默认保留左键单击、滚轮和左右滑动。每项都可以改成上一页、下一页或删除，也可以添加新的按键。</p>
+          <div id="bindingList" class="bind-list"></div>
+          <div class="bind-actions">
+            <button class="btn" id="bindAdd">添加按键</button>
+            <button class="btn ghost" id="bindReset">恢复默认</button>
+          </div>
+        </section>
+
+        <section class="set-group">
+          <h2>关于</h2>
+          <div class="set-row"><div class="set-label"><b>应用</b></div><div class="set-control"><span style="font-size:12px;color:var(--text-2)">番茄小说 桌面版 v0.1.0</span></div></div>
+          <div class="set-row"><div class="set-label"><b>技术栈</b></div><div class="set-control"><span style="font-size:12px;color:var(--text-2)">Tauri 2 · Rust · WebView2</span></div></div>
+          <p class="set-hint">非官方客户端，仅用于个人学习研究；内容版权归番茄小说及作者所有。</p>
+        </section>
       </div>
     </section>
   </main>
@@ -1383,12 +1441,78 @@
   const readPop = $("#readPop");
   let storedPrefs = {};
   try { storedPrefs = JSON.parse(localStorage.getItem("fq-reader") || "{}"); } catch (_) {}
-  const prefs = Object.assign({ theme: "paper", size: 19, lh: 1.95, width: 720, mode: "paged", click: true, wheel: true, swipe: true, keyboard: true }, storedPrefs);
+  const prefs = Object.assign({
+    theme: "paper", size: 19, lh: 1.95, width: 720, mode: "paged",
+    font: "serif", para: 0.95, indent: true, letter: 0.2, animate: false, openFull: false,
+    bindings: null
+  }, storedPrefs);
   if (!["paper", "sepia", "night", "oled"].includes(prefs.theme)) prefs.theme = "paper";
   prefs.mode = prefs.mode === "scroll" ? "scroll" : "paged";
   prefs.size = Math.max(13, Math.min(30, Number(prefs.size) || 19));
   prefs.lh = Math.max(1.4, Math.min(2.6, Number(prefs.lh) || 1.95));
   prefs.width = [620, 720, 840].includes(Number(prefs.width)) ? Number(prefs.width) : 720;
+  prefs.font = ["serif", "sans", "kai"].includes(prefs.font) ? prefs.font : "serif";
+  prefs.para = Math.max(0.3, Math.min(2, Number(prefs.para) || 0.95));
+  prefs.letter = Math.max(0, Math.min(3, Number(prefs.letter) || 0));
+  const FONT_STACKS = {
+    serif: '"Noto Serif SC", "Source Han Serif SC", "Songti SC", "SimSun", serif',
+    sans: '"Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", sans-serif',
+    kai: '"KaiTi", "STKaiti", "Kaiti SC", serif'
+  };
+  const DEFAULT_BINDINGS = [
+    { trigger: "click", action: "next" },
+    { trigger: "wheelDown", action: "next" },
+    { trigger: "wheelUp", action: "prev" },
+    { trigger: "swipeLeft", action: "next" },
+    { trigger: "swipeRight", action: "prev" },
+    { trigger: "key:ArrowRight", action: "next" },
+    { trigger: "key:ArrowLeft", action: "prev" },
+    { trigger: "key:PageDown", action: "next" },
+    { trigger: "key:PageUp", action: "prev" },
+    { trigger: "key: ", action: "next" }
+  ];
+  const GROUP_TRIGGERS = {
+    click: ["click"],
+    wheel: ["wheelDown", "wheelUp"],
+    swipe: ["swipeLeft", "swipeRight"],
+    keyboard: ["key:ArrowRight", "key:ArrowLeft", "key:PageDown", "key:PageUp", "key: "]
+  };
+  function isTrigger(t) {
+    return ["click", "wheelDown", "wheelUp", "swipeLeft", "swipeRight"].includes(t)
+      || (typeof t === "string" && t.startsWith("key:") && t.length <= 24);
+  }
+  function normalizeBindings(list) {
+    const seen = new Set(), out = [];
+    (Array.isArray(list) ? list : []).forEach(b => {
+      if (!b || !isTrigger(b.trigger) || !["next", "prev"].includes(b.action) || seen.has(b.trigger)) return;
+      seen.add(b.trigger);
+      out.push({ trigger: b.trigger, action: b.action });
+    });
+    return out;
+  }
+  if (!Array.isArray(storedPrefs.bindings)) {
+    const legacy = { click: storedPrefs.click !== false, wheel: storedPrefs.wheel !== false, swipe: storedPrefs.swipe !== false, keyboard: storedPrefs.keyboard !== false };
+    prefs.bindings = DEFAULT_BINDINGS.filter(b => legacy[Object.keys(GROUP_TRIGGERS).find(g => GROUP_TRIGGERS[g].includes(b.trigger))]).map(b => ({ ...b }));
+  } else {
+    prefs.bindings = normalizeBindings(prefs.bindings);
+  }
+  function bindingAction(trigger) {
+    const hit = prefs.bindings.find(b => b.trigger === trigger);
+    return hit ? hit.action : null;
+  }
+  function groupEnabled(group) {
+    return GROUP_TRIGGERS[group].some(t => bindingAction(t));
+  }
+  function setGroup(group, enabled) {
+    const triggers = GROUP_TRIGGERS[group];
+    if (enabled) {
+      DEFAULT_BINDINGS.filter(b => triggers.includes(b.trigger) && !prefs.bindings.some(x => x.trigger === b.trigger))
+        .forEach(b => prefs.bindings.push({ ...b }));
+    } else {
+      prefs.bindings = prefs.bindings.filter(b => !triggers.includes(b.trigger));
+    }
+    savePrefs();
+  }
   let readerState = { book: null, chapters: [], index: -1, itemId: null, session: 0 };
   const readToc = $("#readToc");
   let ownedFullscreen = false, fullscreenQueue = Promise.resolve(), layoutFrame = 0;
@@ -1517,58 +1641,190 @@
     applyPrefs();
   }
   function applyPrefs() {
-    reader.className = "reader theme-" + prefs.theme + (prefs.mode === "paged" ? " paged" : "");
+    reader.className = "reader theme-" + prefs.theme + (prefs.mode === "paged" ? " paged" : "") + (prefs.animate ? " page-anim" : "");
     $("#readMode").value = prefs.mode;
-    ["click", "wheel", "swipe", "keyboard"].forEach(key => { $("#read" + key[0].toUpperCase() + key.slice(1)).checked = !!prefs[key]; });
+    ["click", "wheel", "swipe", "keyboard"].forEach(key => {
+      $("#read" + key[0].toUpperCase() + key.slice(1)).checked = groupEnabled(key);
+    });
     scheduleLayout();
+    document.documentElement.style.setProperty("--read-font", FONT_STACKS[prefs.font]);
     document.documentElement.style.setProperty("--read-size", prefs.size + "px");
     document.documentElement.style.setProperty("--read-lh", String(prefs.lh));
+    document.documentElement.style.setProperty("--read-para", prefs.para + "em");
+    document.documentElement.style.setProperty("--read-indent", prefs.indent ? "2em" : "0");
+    document.documentElement.style.setProperty("--read-letter", prefs.letter + "px");
     document.documentElement.style.setProperty("--read-width", prefs.width + "px");
     $("#fontVal").textContent = String(prefs.size);
     $("#lhVal").textContent = Number(prefs.lh).toFixed(2);
     $("#widthSel").value = String(prefs.width);
     document.querySelectorAll(".theme-dot").forEach((d) => d.classList.toggle("sel", d.dataset.theme === prefs.theme));
-    ["mode", "theme", "size", "lh", "width"].forEach(key => { $("#set" + key[0].toUpperCase() + key.slice(1)).value = String(prefs[key]); });
-    ["click", "wheel", "swipe", "keyboard"].forEach(key => { $("#set" + key[0].toUpperCase() + key.slice(1)).checked = !!prefs[key]; });
+    ["mode", "theme", "font", "size", "lh", "para", "letter", "width"].forEach(key => {
+      $("#set" + key[0].toUpperCase() + key.slice(1)).value = String(prefs[key]);
+    });
+    ["indent", "animate", "openFull"].forEach(key => {
+      $("#set" + key[0].toUpperCase() + key.slice(1)).checked = !!prefs[key];
+    });
+    renderBindings();
+  }
+  const KEY_LABELS = {
+    " ": "空格", ArrowRight: "→", ArrowLeft: "←", ArrowUp: "↑", ArrowDown: "↓",
+    PageDown: "PageDown", PageUp: "PageUp", Home: "Home", End: "End", Enter: "回车", Backspace: "退格"
+  };
+  const TRIGGER_LABELS = {
+    click: "左键单击", wheelDown: "滚轮向下", wheelUp: "滚轮向上",
+    swipeLeft: "向左滑动", swipeRight: "向右滑动"
+  };
+  function keyLabel(key) { return KEY_LABELS[key] || (key.length === 1 ? key.toUpperCase() : key); }
+  function triggerLabel(trigger) {
+    return trigger.startsWith("key:") ? "按键 " + keyLabel(trigger.slice(4)) : (TRIGGER_LABELS[trigger] || trigger);
+  }
+  function renderBindings() {
+    const list = $("#bindingList");
+    list.textContent = "";
+    if (!prefs.bindings.length) {
+      const empty = el("p", "set-hint", "当前没有翻页操作，阅读时不会响应点击、滚轮或滑动。");
+      empty.style.margin = "8px 2px";
+      list.appendChild(empty);
+      return;
+    }
+    prefs.bindings.forEach((binding, index) => {
+      const row = el("div", "bind-row");
+      row.appendChild(el("span", "bind-trigger", esc(triggerLabel(binding.trigger))));
+      const action = document.createElement("select");
+      action.setAttribute("aria-label", triggerLabel(binding.trigger) + "的动作");
+      [["next", "下一页"], ["prev", "上一页"]].forEach(([value, text]) => {
+        const option = document.createElement("option");
+        option.value = value; option.textContent = text;
+        action.appendChild(option);
+      });
+      action.value = binding.action;
+      action.onchange = () => { prefs.bindings[index].action = action.value; savePrefs(); };
+      row.appendChild(action);
+      const remove = el("button", "bind-del", "删除");
+      remove.type = "button";
+      remove.setAttribute("aria-label", "删除 " + triggerLabel(binding.trigger));
+      remove.onclick = () => { prefs.bindings.splice(index, 1); savePrefs(); };
+      row.appendChild(remove);
+      list.appendChild(row);
+    });
   }
   applyPrefs();
-  ["mode", "theme", "size", "lh", "width", "click", "wheel", "swipe", "keyboard"].forEach(key => {
+  ["mode", "theme", "font", "size", "lh", "para", "letter", "width"].forEach(key => {
     const control = $("#set" + key[0].toUpperCase() + key.slice(1));
     control.onchange = () => {
-      if (control.type === "checkbox") prefs[key] = control.checked;
-      else if (["size", "lh", "width"].includes(key)) {
+      if (["size", "lh", "para", "letter"].includes(key)) {
         if (!control.checkValidity() || !control.value) { applyPrefs(); return; }
         prefs[key] = Number(control.value);
-      } else prefs[key] = control.value;
+      } else if (key === "width") prefs.width = Number(control.value);
+      else prefs[key] = control.value;
       savePrefs();
     };
   });
-  let bossBusy = false;
+  ["indent", "animate", "openFull"].forEach(key => {
+    const control = $("#set" + key[0].toUpperCase() + key.slice(1));
+    control.onchange = () => { prefs[key] = control.checked; savePrefs(); };
+  });
+  let bindingCapture = false;
+  $("#bindAdd").onclick = () => {
+    bindingCapture = true;
+    $("#bindAdd").textContent = "请按一个新按键…";
+  };
+  $("#bindReset").onclick = () => {
+    prefs.bindings = DEFAULT_BINDINGS.map(b => ({ ...b }));
+    savePrefs();
+    toast("翻页操作已恢复默认");
+  };
+  let bossBusy = false, bossCapture = false, bossCache = null;
+  function prettyShortcut(text) { return String(text || "").split("+").filter(Boolean).join(" + "); }
   function paintBossStatus(status) {
+    bossCache = status;
     $("#bossEnabled").checked = status.enabled;
-    $("#bossStatus").textContent = status.error || (status.smoke ? "测试模式：不注册全局快捷键。" : !status.enabled ? "老板键已停用。" : status.registered ? "Alt+Z 已注册，可隐藏 / 恢复主窗口。" : "Alt+Z 尚未注册，请重试。");
+    $("#bossKeyBtn").textContent = prettyShortcut(status.shortcut || "Alt+Z");
+    const name = prettyShortcut(status.shortcut || "Alt+Z");
+    $("#bossStatus").textContent = status.error
+      || (status.smoke ? `测试模式：不注册 ${name}。` : !status.enabled ? "老板键已停用。"
+      : status.registered ? `${name} 已注册，可隐藏 / 恢复主窗口。`
+      : `${name} 尚未注册，可重试或换一个组合键。`);
   }
   async function refreshBossStatus() {
     if (bossBusy) return;
     bossBusy = true;
-    $("#bossEnabled").disabled = $("#bossRetry").disabled = true;
+    $("#bossEnabled").disabled = $("#bossRetry").disabled = $("#bossKeyBtn").disabled = true;
     try { paintBossStatus(await invoke("boss_key_status")); }
     catch (e) { $("#bossStatus").textContent = "读取失败：" + e; }
-    finally { bossBusy = false; $("#bossEnabled").disabled = $("#bossRetry").disabled = false; }
+    finally { bossBusy = false; $("#bossEnabled").disabled = $("#bossRetry").disabled = $("#bossKeyBtn").disabled = false; }
   }
   async function setBossEnabled() {
     if (bossBusy) return;
     bossBusy = true;
-    $("#bossEnabled").disabled = $("#bossRetry").disabled = true;
+    $("#bossEnabled").disabled = $("#bossRetry").disabled = $("#bossKeyBtn").disabled = true;
     try { paintBossStatus(await invoke("boss_key_set_enabled", { enabled: $("#bossEnabled").checked })); }
     catch (e) {
       $("#bossStatus").textContent = "保存失败：" + e;
-      try { const status = await invoke("boss_key_status"); $("#bossEnabled").checked = status.enabled; } catch (_) {}
+      try { paintBossStatus(await invoke("boss_key_status")); } catch (_) {}
     }
-    finally { bossBusy = false; $("#bossEnabled").disabled = $("#bossRetry").disabled = false; }
+    finally { bossBusy = false; $("#bossEnabled").disabled = $("#bossRetry").disabled = $("#bossKeyBtn").disabled = false; }
+  }
+  async function setBossShortcut(shortcut) {
+    if (bossBusy) return;
+    bossBusy = true;
+    $("#bossEnabled").disabled = $("#bossRetry").disabled = $("#bossKeyBtn").disabled = true;
+    try { paintBossStatus(await invoke("boss_key_set_shortcut", { shortcut })); }
+    catch (e) {
+      $("#bossStatus").textContent = "快捷键无效：" + e;
+      try { paintBossStatus(await invoke("boss_key_status")); } catch (_) {}
+    }
+    finally { bossBusy = false; $("#bossEnabled").disabled = $("#bossRetry").disabled = $("#bossKeyBtn").disabled = false; }
   }
   $("#bossEnabled").onchange = setBossEnabled;
-  $("#bossRetry").onclick = setBossEnabled;
+  $("#bossRetry").onclick = async () => {
+    if (bossBusy) return;
+    bossBusy = true;
+    $("#bossEnabled").disabled = $("#bossRetry").disabled = $("#bossKeyBtn").disabled = true;
+    try { paintBossStatus(await invoke("boss_key_retry")); }
+    catch (e) { $("#bossStatus").textContent = "重试失败：" + e; }
+    finally { bossBusy = false; $("#bossEnabled").disabled = $("#bossRetry").disabled = $("#bossKeyBtn").disabled = false; }
+  };
+  $("#bossKeyBtn").onclick = () => {
+    if (bossBusy) return;
+    bossCapture = true;
+    $("#bossKeyBtn").classList.add("capturing");
+    $("#bossKeyBtn").textContent = "请按组合键…";
+  };
+  document.addEventListener("keydown", (e) => {
+    if (bindingCapture) {
+      e.preventDefault();
+      e.stopPropagation();
+      bindingCapture = false;
+      $("#bindAdd").textContent = "添加按键";
+      if (["Escape", "Tab", "Shift", "Control", "Alt", "Meta"].includes(e.key)) return;
+      const trigger = "key:" + e.key;
+      if (prefs.bindings.some(b => b.trigger === trigger)) { toast("这个按键已经绑定过了", true); return; }
+      if (!isTrigger(trigger)) return;
+      prefs.bindings.push({ trigger, action: "next" });
+      savePrefs();
+      toast("已添加按键：" + keyLabel(e.key));
+      return;
+    }
+    if (!bossCapture) return;
+    e.preventDefault();
+    e.stopPropagation();
+    bossCapture = false;
+    $("#bossKeyBtn").classList.remove("capturing");
+    if (e.key === "Escape") { paintBossStatus(bossCache || { enabled: true, registered: false, smoke: false, shortcut: "Alt+Z" }); return; }
+    const mods = [];
+    if (e.ctrlKey) mods.push("Ctrl");
+    if (e.altKey) mods.push("Alt");
+    if (e.shiftKey) mods.push("Shift");
+    if (e.metaKey) mods.push("Super");
+    if (!mods.length || ["Control", "Alt", "Shift", "Meta"].includes(e.key)) {
+      paintBossStatus(bossCache || { enabled: true, registered: false, smoke: false, shortcut: "Alt+Z" });
+      toast("请同时按住 Ctrl、Alt 或 Shift，再按一个键", true);
+      return;
+    }
+    const key = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+    setBossShortcut(mods.join("+") + "+" + key);
+  }, true);
 
   function invalidateReading() {
     setReaderFullscreen(false);
@@ -1602,6 +1858,7 @@
     document.body.classList.add("reader-mode");
     Object.keys(views).forEach((k) => { views[k].style.display = "none"; });
     $("#view-reader").style.display = "block";
+    if (prefs.openFull) setReaderFullscreen(true);
     loadChapter(itemId);
   }
 
@@ -1693,7 +1950,7 @@
   $("#readMode").onchange = () => { prefs.mode = $("#readMode").value; savePrefs(); };
   ["click", "wheel", "swipe", "keyboard"].forEach(key => {
     const input = $("#read" + key[0].toUpperCase() + key.slice(1));
-    input.onchange = () => { prefs[key] = input.checked; savePrefs(); };
+    input.onchange = () => setGroup(key, input.checked);
   });
   $("#readFullscreen").onclick = () => setReaderFullscreen(!ownedFullscreen);
   $("#readFullCheck").onchange = () => setReaderFullscreen($("#readFullCheck").checked);
@@ -1721,7 +1978,7 @@
     gesture = null;
     if (e.button !== 0 || !e.isPrimary || !canGesture(e)) return;
     gesture = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false, session: readerState.session, request: readerState.request };
-    if (prefs.swipe) readScroll.setPointerCapture(e.pointerId);
+    if (bindingAction("swipeLeft") || bindingAction("swipeRight")) readScroll.setPointerCapture(e.pointerId);
   });
   readScroll.addEventListener("pointermove", e => {
     if (gesture && gesture.id === e.pointerId && (Math.abs(e.clientX - gesture.x) > 8 || Math.abs(e.clientY - gesture.y) > 8)) gesture.moved = true;
@@ -1734,25 +1991,30 @@
     if (g.moved || e.pointerType !== "mouse") suppressClickUntil = performance.now() + 500;
     if (!canGesture(e) || g.session !== readerState.session || g.request !== readerState.request) return;
     const dx = e.clientX - g.x, dy = e.clientY - g.y;
-    if (prefs.swipe && g.moved && Math.abs(dx) >= 45 && Math.abs(dx) > Math.abs(dy) * 1.3) step(dx > 0 ? -1 : 1);
+    if (!g.moved || Math.abs(dx) < 45 || Math.abs(dx) <= Math.abs(dy) * 1.3) return;
+    const action = bindingAction(dx > 0 ? "swipeRight" : "swipeLeft");
+    if (action) step(action === "next" ? 1 : -1);
   });
   readScroll.addEventListener("pointercancel", () => { gesture = null; suppressClickUntil = performance.now() + 500; });
   readScroll.addEventListener("lostpointercapture", () => { if (gesture) { gesture = null; suppressClickUntil = performance.now() + 500; } });
   readScroll.addEventListener("click", e => {
-    if (e.button !== 0 || !prefs.click || performance.now() < suppressClickUntil || !canGesture(e)) return;
+    if (e.button !== 0 || performance.now() < suppressClickUntil || !canGesture(e)) return;
     if (e.detail > 1) return;
-    step(1);
+    const action = bindingAction("click");
+    if (action) step(action === "next" ? 1 : -1);
   });
   readScroll.addEventListener("wheel", e => {
-    if (!prefs.wheel || prefs.mode !== "paged" || !document.body.classList.contains("reader-mode")
+    if (prefs.mode !== "paged" || !document.body.classList.contains("reader-mode")
       || readPop.classList.contains("open") || readToc.classList.contains("open") || inputTarget(e.target)
       || e.ctrlKey || Math.abs(e.deltaY) < Math.abs(e.deltaX) || !e.deltaY) return;
+    const action = bindingAction(e.deltaY > 0 ? "wheelDown" : "wheelUp");
+    if (!action) return;
     e.preventDefault();
     clearTimeout(wheelTimer);
     wheelTimer = setTimeout(() => { wheelQuiet = true; }, 300);
     if (!wheelQuiet) return;
     wheelQuiet = false;
-    if (canGesture(e)) step(e.deltaY > 0 ? 1 : -1);
+    if (canGesture(e)) step(action === "next" ? 1 : -1);
   }, { passive: false });
   document.querySelectorAll(".theme-dot").forEach((d) => {
     d.onclick = () => { prefs.theme = d.dataset.theme; savePrefs(); };
@@ -1772,10 +2034,10 @@
       else returnToDirectory();
       return;
     }
-    if (!prefs.keyboard || prefs.mode !== "paged" || inputTarget(e.target) || e.ctrlKey || e.altKey || e.metaKey
+    if (prefs.mode !== "paged" || inputTarget(e.target) || e.ctrlKey || e.altKey || e.metaKey
       || readPop.classList.contains("open") || readToc.classList.contains("open")) return;
-    const delta = ["ArrowRight", "PageDown", " "].includes(e.key) ? 1 : ["ArrowLeft", "PageUp"].includes(e.key) ? -1 : 0;
-    if (delta) { e.preventDefault(); if (!e.repeat && !String(window.getSelection())) step(delta); }
+    const action = bindingAction("key:" + e.key);
+    if (action) { e.preventDefault(); if (!e.repeat && !String(window.getSelection())) step(action === "next" ? 1 : -1); }
   });
 
   /* ---------- boot ---------- */

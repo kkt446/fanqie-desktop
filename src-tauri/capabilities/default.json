@@ -32,6 +32,8 @@
     "allow-win-close",
     "allow-boss-key-status",
     "allow-boss-key-set-enabled",
+    "allow-boss-key-set-shortcut",
+    "allow-boss-key-retry",
     "allow-boss-key-smoke-toggle"
   ]
 }

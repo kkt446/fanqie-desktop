@@ -9,7 +9,7 @@ use fanqie_core::api::Client;
 mod accounts;
 use accounts::Accounts;
 use fanqie_core::store::BookRow;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
 use tokio::sync::oneshot;
 
@@ -429,14 +429,85 @@ struct BossKeyStatus {
     enabled: bool,
     registered: bool,
     smoke: bool,
+    shortcut: String,
     error: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct BossKeyConfig {
+    enabled: bool,
+    shortcut: String,
+}
+
+impl BossKeyConfig {
+    fn load() -> Self {
+        let path = data_dir().join("boss-key.json");
+        if let Ok(bytes) = std::fs::read(&path) {
+            if let Ok(config) = serde_json::from_slice::<BossKeyConfig>(&bytes) {
+                return config;
+            }
+            if let Ok(enabled) = serde_json::from_slice::<bool>(&bytes) {
+                return BossKeyConfig { enabled, shortcut: "Alt+Z".into() };
+            }
+        }
+        BossKeyConfig { enabled: true, shortcut: "Alt+Z".into() }
+    }
+    fn save(&self) -> Result<(), String> {
+        std::fs::create_dir_all(data_dir()).map_err(|e| e.to_string())?;
+        std::fs::write(data_dir().join("boss-key.json"), serde_json::to_vec(self).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())
+    }
 }
 
 struct BossKey(Mutex<BossKeyStatus>);
 
-fn boss_shortcut() -> tauri_plugin_global_shortcut::Shortcut {
+fn parse_boss_shortcut(text: &str) -> Result<tauri_plugin_global_shortcut::Shortcut, String> {
+    use std::str::FromStr;
     use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut};
-    Shortcut::new(Some(Modifiers::ALT), Code::KeyZ)
+    let mut mods = Modifiers::empty();
+    let mut code: Option<Code> = None;
+    for part in text.split('+').map(str::trim).filter(|part| !part.is_empty()) {
+        let lower = part.to_ascii_lowercase();
+        match lower.as_str() {
+            "ctrl" | "control" => mods |= Modifiers::CONTROL,
+            "alt" => mods |= Modifiers::ALT,
+            "shift" => mods |= Modifiers::SHIFT,
+            "super" | "win" | "meta" => mods |= Modifiers::SUPER,
+            _ => {
+                if code.is_some() { return Err("快捷键只能包含一个主键".into()); }
+                let name = if lower.len() == 1 && lower.chars().all(|c| c.is_ascii_alphanumeric()) {
+                    if lower.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+                        format!("Digit{}", lower)
+                    } else {
+                        format!("Key{}", lower.to_ascii_uppercase())
+                    }
+                } else if lower.starts_with('f')
+                    && lower[1..].parse::<u8>().is_ok_and(|n| (1..=24).contains(&n))
+                {
+                    lower.to_ascii_uppercase()
+                } else {
+                    match lower.as_str() {
+                        "space" => "Space".into(),
+                        "up" | "arrowup" => "ArrowUp".into(),
+                        "down" | "arrowdown" => "ArrowDown".into(),
+                        "left" | "arrowleft" => "ArrowLeft".into(),
+                        "right" | "arrowright" => "ArrowRight".into(),
+                        "pagedown" => "PageDown".into(),
+                        "pageup" => "PageUp".into(),
+                        "home" => "Home".into(),
+                        "end" => "End".into(),
+                        "insert" => "Insert".into(),
+                        "delete" => "Delete".into(),
+                        "enter" | "return" => "Enter".into(),
+                        other => return Err(format!("不支持的主键：{other}")),
+                    }
+                };
+                code = Some(Code::from_str(&name).map_err(|_| format!("不支持的主键：{name}"))?);
+            }
+        }
+    }
+    if mods.is_empty() { return Err("快捷键至少需要一个 Ctrl、Alt 或 Shift".into()); }
+    Ok(Shortcut::new(Some(mods), code.ok_or("快捷键缺少主键")?))
 }
 
 fn smoke_mode() -> bool {
@@ -495,14 +566,31 @@ fn toggle_main(app: &AppHandle) -> Result<bool, String> {
     }
 }
 
+fn unregister_boss(app: &AppHandle, status: &mut BossKeyStatus) {
+    use tauri_plugin_global_shortcut::GlobalShortcutExt;
+    if !status.registered { return; }
+    match parse_boss_shortcut(&status.shortcut)
+        .and_then(|shortcut| app.global_shortcut().unregister(shortcut).map_err(|e| e.to_string()))
+    {
+        Ok(()) => status.registered = false,
+        Err(e) => status.error = Some(format!("停用快捷键失败，请重试：{e}")),
+    }
+}
+
 fn register_boss_key(app: &AppHandle, status: &mut BossKeyStatus) {
     use tauri_plugin_global_shortcut::GlobalShortcutExt;
     status.error = None;
     if status.smoke || !status.enabled || status.registered { return; }
-    match app.global_shortcut().register(boss_shortcut()) {
+    match parse_boss_shortcut(&status.shortcut)
+        .and_then(|shortcut| app.global_shortcut().register(shortcut).map_err(|e| e.to_string()))
+    {
         Ok(()) => status.registered = true,
-        Err(e) => status.error = Some(format!("Alt+Z 注册失败，可能被其他应用占用：{e}")),
+        Err(e) => status.error = Some(format!("{} 注册失败，可能已被其他程序占用：{e}", status.shortcut)),
     }
+}
+
+fn save_boss_config(status: &BossKeyStatus) -> Result<(), String> {
+    BossKeyConfig { enabled: status.enabled, shortcut: status.shortcut.clone() }.save()
 }
 
 #[tauri::command]
@@ -512,20 +600,36 @@ fn boss_key_status(st: State<'_, BossKey>) -> BossKeyStatus {
 
 #[tauri::command]
 fn boss_key_set_enabled(app: AppHandle, st: State<'_, BossKey>, enabled: bool) -> Result<BossKeyStatus, String> {
-    use tauri_plugin_global_shortcut::GlobalShortcutExt;
     let mut status = st.0.lock().unwrap();
-    std::fs::create_dir_all(data_dir()).map_err(|e| e.to_string())?;
-    std::fs::write(data_dir().join("boss-key.json"), serde_json::to_vec(&enabled).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
     status.enabled = enabled;
-    status.error = None;
-    if !enabled && status.registered {
-        match app.global_shortcut().unregister(boss_shortcut()) {
-            Ok(()) => status.registered = false,
-            Err(e) => status.error = Some(format!("停用快捷键失败，请重试：{e}")),
+    if enabled { register_boss_key(&app, &mut status); } else { unregister_boss(&app, &mut status); }
+    save_boss_config(&status)?;
+    Ok(status.clone())
+}
+
+#[tauri::command]
+fn boss_key_set_shortcut(app: AppHandle, st: State<'_, BossKey>, shortcut: String) -> Result<BossKeyStatus, String> {
+    use tauri_plugin_global_shortcut::GlobalShortcutExt;
+    let parsed = parse_boss_shortcut(&shortcut)?;
+    let mut status = st.0.lock().unwrap();
+    unregister_boss(&app, &mut status);
+    if status.error.is_some() { return Ok(status.clone()); }
+    status.shortcut = shortcut;
+    if status.enabled && !status.smoke {
+        match app.global_shortcut().register(parsed) {
+            Ok(()) => { status.registered = true; status.error = None; }
+            Err(e) => status.error = Some(format!("{} 注册失败，可能已被其他程序占用：{e}", status.shortcut)),
         }
     }
-    register_boss_key(&app, &mut status);
+    save_boss_config(&status)?;
     Ok(status.clone())
+}
+
+#[tauri::command]
+fn boss_key_retry(app: AppHandle, st: State<'_, BossKey>) -> BossKeyStatus {
+    let mut status = st.0.lock().unwrap();
+    if !status.registered { register_boss_key(&app, &mut status); }
+    status.clone()
 }
 
 #[tauri::command]
@@ -544,20 +648,27 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(|app, shortcut, event| {
             use tauri_plugin_global_shortcut::ShortcutState;
-            if shortcut == &boss_shortcut() && event.state == ShortcutState::Pressed && !smoke_mode() {
+            if event.state != ShortcutState::Pressed || smoke_mode() { return; }
+            let matches = {
                 let st = app.state::<BossKey>();
-                let mut status = st.0.lock().unwrap();
-                if status.enabled {
-                    if let Err(e) = toggle_main(app) { status.error = Some(e); }
-                }
-            }
+                let status = st.0.lock().unwrap();
+                status.enabled && parse_boss_shortcut(&status.shortcut).is_ok_and(|s| &s == shortcut)
+            };
+            if !matches { return; }
+            let st = app.state::<BossKey>();
+            let mut status = st.0.lock().unwrap();
+            if let Err(e) = toggle_main(app) { status.error = Some(e); }
         }).build())
-        .manage(BossKey(Mutex::new(BossKeyStatus {
-            enabled: std::fs::read(data_dir().join("boss-key.json")).ok().and_then(|bytes| serde_json::from_slice::<bool>(&bytes).ok()).unwrap_or(true),
-            registered: false,
-            smoke,
-            error: None,
-        })))
+        .manage(BossKey({
+            let config = BossKeyConfig::load();
+            Mutex::new(BossKeyStatus {
+                enabled: config.enabled,
+                registered: false,
+                smoke,
+                shortcut: config.shortcut,
+                error: None,
+            })
+        }))
         .manage(AppState {
             client: Mutex::new(client),
             accounts: Mutex::new(accounts),
@@ -639,6 +750,8 @@ fn main() {
             win_close,
             boss_key_status,
             boss_key_set_enabled,
+            boss_key_set_shortcut,
+            boss_key_retry,
             boss_key_smoke_toggle
         ])
         .run(tauri::generate_context!())
