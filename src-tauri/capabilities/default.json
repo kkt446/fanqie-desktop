@@ -28,6 +28,10 @@
     "allow-set-progress",
     "allow-win-min",
     "allow-win-max-toggle",
-    "allow-win-close"
+    "allow-win-fullscreen",
+    "allow-win-close",
+    "allow-boss-key-status",
+    "allow-boss-key-set-enabled",
+    "allow-boss-key-smoke-toggle"
   ]
 }

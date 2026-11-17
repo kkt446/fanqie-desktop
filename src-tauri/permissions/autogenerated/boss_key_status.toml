@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-boss-key-status"
+description = "Enables the boss_key_status command without any pre-configured scope."
+commands.allow = ["boss_key_status"]
+
+[[permission]]
+identifier = "deny-boss-key-status"
+description = "Denies the boss_key_status command without any pre-configured scope."
+commands.deny = ["boss_key_status"]

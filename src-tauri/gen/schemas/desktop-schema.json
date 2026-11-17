@@ -207,6 +207,24 @@
           "markdownDescription": "Enables the book_detail command without any pre-configured scope."
         },
         {
+          "description": "Enables the boss_key_set_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-boss-key-set-enabled",
+          "markdownDescription": "Enables the boss_key_set_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the boss_key_smoke_toggle command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-boss-key-smoke-toggle",
+          "markdownDescription": "Enables the boss_key_smoke_toggle command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the boss_key_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-boss-key-status",
+          "markdownDescription": "Enables the boss_key_status command without any pre-configured scope."
+        },
+        {
           "description": "Enables the bridge_deliver command without any pre-configured scope.",
           "type": "string",
           "const": "allow-bridge-deliver",
@@ -321,6 +339,12 @@
           "markdownDescription": "Enables the win_close command without any pre-configured scope."
         },
         {
+          "description": "Enables the win_fullscreen command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-win-fullscreen",
+          "markdownDescription": "Enables the win_fullscreen command without any pre-configured scope."
+        },
+        {
           "description": "Enables the win_max_toggle command without any pre-configured scope.",
           "type": "string",
           "const": "allow-win-max-toggle",
@@ -361,6 +385,24 @@
           "type": "string",
           "const": "deny-book-detail",
           "markdownDescription": "Denies the book_detail command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the boss_key_set_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-boss-key-set-enabled",
+          "markdownDescription": "Denies the boss_key_set_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the boss_key_smoke_toggle command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-boss-key-smoke-toggle",
+          "markdownDescription": "Denies the boss_key_smoke_toggle command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the boss_key_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-boss-key-status",
+          "markdownDescription": "Denies the boss_key_status command without any pre-configured scope."
         },
         {
           "description": "Denies the bridge_deliver command without any pre-configured scope.",
@@ -475,6 +517,12 @@
           "type": "string",
           "const": "deny-win-close",
           "markdownDescription": "Denies the win_close command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the win_fullscreen command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-win-fullscreen",
+          "markdownDescription": "Denies the win_fullscreen command without any pre-configured scope."
         },
         {
           "description": "Denies the win_max_toggle command without any pre-configured scope.",
@@ -2527,6 +2575,72 @@
           "type": "string",
           "const": "core:window:deny-unminimize",
           "markdownDescription": "Denies the unminimize command without any pre-configured scope."
+        },
+        {
+          "description": "No features are enabled by default, as we believe\nthe shortcuts can be inherently dangerous and it is\napplication specific if specific shortcuts should be\nregistered or unregistered.\n",
+          "type": "string",
+          "const": "global-shortcut:default",
+          "markdownDescription": "No features are enabled by default, as we believe\nthe shortcuts can be inherently dangerous and it is\napplication specific if specific shortcuts should be\nregistered or unregistered.\n"
+        },
+        {
+          "description": "Enables the is_registered command without any pre-configured scope.",
+          "type": "string",
+          "const": "global-shortcut:allow-is-registered",
+          "markdownDescription": "Enables the is_registered command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the register command without any pre-configured scope.",
+          "type": "string",
+          "const": "global-shortcut:allow-register",
+          "markdownDescription": "Enables the register command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the register_all command without any pre-configured scope.",
+          "type": "string",
+          "const": "global-shortcut:allow-register-all",
+          "markdownDescription": "Enables the register_all command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the unregister command without any pre-configured scope.",
+          "type": "string",
+          "const": "global-shortcut:allow-unregister",
+          "markdownDescription": "Enables the unregister command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the unregister_all command without any pre-configured scope.",
+          "type": "string",
+          "const": "global-shortcut:allow-unregister-all",
+          "markdownDescription": "Enables the unregister_all command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the is_registered command without any pre-configured scope.",
+          "type": "string",
+          "const": "global-shortcut:deny-is-registered",
+          "markdownDescription": "Denies the is_registered command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the register command without any pre-configured scope.",
+          "type": "string",
+          "const": "global-shortcut:deny-register",
+          "markdownDescription": "Denies the register command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the register_all command without any pre-configured scope.",
+          "type": "string",
+          "const": "global-shortcut:deny-register-all",
+          "markdownDescription": "Denies the register_all command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the unregister command without any pre-configured scope.",
+          "type": "string",
+          "const": "global-shortcut:deny-unregister",
+          "markdownDescription": "Denies the unregister command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the unregister_all command without any pre-configured scope.",
+          "type": "string",
+          "const": "global-shortcut:deny-unregister-all",
+          "markdownDescription": "Denies the unregister_all command without any pre-configured scope."
         }
       ]
     },

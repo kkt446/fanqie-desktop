@@ -361,6 +361,18 @@
     border-radius: 8px; padding: 6px 8px; font-size: 12px; outline: none;
   }
 
+  .reader-scroll { min-height: 0; }
+  .reader.paged .reader-scroll { overflow: hidden; touch-action: none; user-select: none; }
+  .reader.paged .reader-body { padding: 0; max-width: none; column-fill: auto; column-gap: 64px; overflow: visible; }
+  .reader.paged .reader-body h1 { break-after: avoid; }
+  .reader.paged .reader-body p { orphans: 1; widows: 1; }
+  .reader .reader-nav { position: static; flex: none; height: 56px; opacity: 1; pointer-events: auto; background: rgba(127,127,127,.08); gap: 10px; }
+  #readPageStatus { font-size: 12px; }
+  #readPageInput { width: 60px; color: inherit; background: transparent; border: 1px solid rgba(127,127,127,.4); border-radius: 5px; padding: 4px; }
+  #readToc { width: min(380px, calc(100% - 36px)); max-height: calc(100% - 140px); overflow: auto; }
+  #readTocList button { width: 100%; text-align: left; display: block; padding: 10px; border: 0; background: transparent; color: inherit; }
+  #readTocList button.cur { color: var(--accent); background: rgba(127,127,127,.15); }
+  #readPop { max-height: calc(100% - 130px); overflow: auto; }
   [hidden] { display: none !important; }
   button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   #acctCard { width: 100%; border: 0; background: transparent; text-align: left; }
@@ -448,6 +460,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8.2" r="3.6"/><path d="M4.8 20.2c.7-3.4 3.6-5.2 7.2-5.2s6.5 1.8 7.2 5.2" stroke-linecap="round"/></svg>
       <span>账号</span>
     </div>
+    <div class="nav" data-nav="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/></svg>
+      <span>设置</span>
+    </div>
     <div class="rail-foot">
       <button class="acct" id="acctCard" aria-haspopup="menu" aria-expanded="false" aria-controls="accountMenu">
         <span class="avatar" id="acctAvatar">?</span>
@@ -505,6 +521,10 @@
           <div class="rtitle" id="readTitle"></div>
           <span id="readAccount" aria-label="当前阅读账号"></span>
           <button class="rbtn" id="readTocBtn">目录</button>
+          <button class="rbtn" id="readFullscreen">全屏</button>
+          <button class="rbtn" id="readMin" title="最小化">−</button>
+          <button class="rbtn" id="readMax" title="最大化 / 还原">□</button>
+          <button class="rbtn" id="readClose" title="关闭窗口">×</button>
           <button class="rbtn" id="readSetBtn">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h10M18 8h2M4 16h4M12 16h8" stroke-linecap="round"/><circle cx="15.5" cy="8" r="1.8"/><circle cx="9.5" cy="16" r="1.8"/></svg>
             样式
@@ -514,10 +534,19 @@
           <div class="reader-body" id="readBody"></div>
         </div>
         <div class="reader-nav">
-          <button class="btn" id="readPrev">← 上一章</button>
-          <button class="btn" id="readNext">下一章 →</button>
+          <button class="btn" id="readPrev" disabled>← 上一页</button>
+          <span id="readPageStatus" aria-live="polite">尚未加载</span>
+          <form id="readPageForm"><label>本章第 <input id="readPageInput" type="text" inputmode="numeric" aria-label="当前章页码" disabled> 页</label><button class="btn" id="readPageGo" disabled>跳转</button></form>
+          <button class="btn" id="readNext" disabled>下一页 →</button>
         </div>
+        <div class="rpop" id="readToc"><strong>本书目录</strong><div id="readTocList"></div></div>
         <div class="rpop" id="readPop">
+          <div class="row"><span>阅读模式</span><select id="readMode"><option value="paged">分页</option><option value="scroll">滚动</option></select></div>
+          <div class="row"><label><input type="checkbox" id="readClick"> 左键单击翻页</label></div>
+          <div class="row"><label><input type="checkbox" id="readWheel"> 滚轮翻页</label></div>
+          <div class="row"><label><input type="checkbox" id="readSwipe"> 拖动 / 触摸滑动翻页</label></div>
+          <div class="row"><label><input type="checkbox" id="readKeyboard"> 键盘翻页</label></div>
+          <div class="row"><label><input type="checkbox" id="readFullCheck"> 全屏阅读</label></div>
           <div class="row"><span>主题</span>
             <div class="themes">
               <button class="theme-dot sel" data-theme="paper" style="background:#f4efe6" title="纸白"></button>
@@ -545,7 +574,7 @@
 
     <!-- account -->
     <section class="view" id="view-account" style="display:none">
-      <div class="page-head"><h1>账号与设置</h1></div>
+      <div class="page-head"><h1>账号</h1></div>
       <div class="cards">
         <div class="card account-manager" id="accountManager">
           <h3>多账号管理</h3>
@@ -568,11 +597,29 @@
           </div>
           <div id="accountList" aria-label="本机账号列表"></div>
         </div>
+      </div>
+    </section>
+    <section class="view" id="view-settings" style="display:none">
+      <div class="page-head"><h1>设置</h1></div>
+      <div class="cards">
+        <div class="card">
+          <h3>老板键</h3>
+          <div class="kv"><label><input type="checkbox" id="bossEnabled" checked> 启用全局老板键</label><b>Alt+Z</b></div>
+          <p class="muted">在任何应用中按 Alt+Z 隐藏 / 恢复主窗口。若快捷键被其他应用占用，可关闭冲突应用后重试。</p>
+          <p id="bossStatus" role="status" aria-live="polite">正在读取快捷键状态…</p>
+          <button class="btn ghost" id="bossRetry">重试注册</button>
+        </div>
         <div class="card">
           <h3>阅读偏好</h3>
-          <div class="kv"><span>当前主题</span><span id="setTheme">纸白</span></div>
-          <div class="kv"><span>字号</span><span id="setSize">19 px</span></div>
-          <div class="kv"><span>行距</span><span id="setLh">1.95</span></div>
+          <div class="kv"><label for="setMode">阅读模式</label><select id="setMode"><option value="paged">分页</option><option value="scroll">滚动</option></select></div>
+          <div class="kv"><label for="setTheme">主题</label><select id="setTheme"><option value="paper">纸白</option><option value="sepia">羊皮</option><option value="night">夜间</option><option value="oled">纯黑</option></select></div>
+          <div class="kv"><label for="setSize">字号</label><input id="setSize" type="number" min="13" max="30" step="1"></div>
+          <div class="kv"><label for="setLh">行距</label><input id="setLh" type="number" min="1.4" max="2.6" step="0.05"></div>
+          <div class="kv"><label for="setWidth">版心宽度</label><select id="setWidth"><option value="620">窄</option><option value="720">适中</option><option value="840">宽</option></select></div>
+          <div class="kv"><label><input id="setClick" type="checkbox"> 左键单击翻页</label></div>
+          <div class="kv"><label><input id="setWheel" type="checkbox"> 滚轮翻页</label></div>
+          <div class="kv"><label><input id="setSwipe" type="checkbox"> 拖动 / 触摸滑动翻页</label></div>
+          <div class="kv"><label><input id="setKeyboard" type="checkbox"> 键盘翻页</label></div>
           <div class="kv"><span>离线缓存</span><span>已读章节自动缓存到 SQLite</span></div>
           <p class="muted" style="margin:14px 0 0">阅读进度与章节缓存均保存在本机，断网时可继续阅读已读章节。</p>
         </div>
@@ -647,7 +694,8 @@
     shelf: $("#view-shelf"),
     search: $("#view-search"),
     detail: $("#view-detail"),
-    account: $("#view-account")
+    account: $("#view-account"),
+    settings: $("#view-settings")
   };
   let current = "shelf";
   const stack = [];
@@ -659,6 +707,7 @@
     document.body.classList.remove("reader-mode");
     Object.keys(views).forEach((k) => { views[k].style.display = k === name ? "" : "none"; });
     document.querySelectorAll(".nav").forEach((n) => n.classList.toggle("active", n.dataset.nav === name));
+    if (name === "settings") refreshBossStatus();
     if (name === "shelf") loadShelf();
     if (name === "search" && !$("#searchHits").children.length) showDiscover();
     closeAccountMenu();
@@ -1332,16 +1381,146 @@
   const readBody = $("#readBody");
   const readScroll = $("#readScroll");
   const readPop = $("#readPop");
-  const prefs = Object.assign({ theme: "paper", size: 19, lh: 1.95, width: 720 },
-    JSON.parse(localStorage.getItem("fq-reader") || "{}"));
+  let storedPrefs = {};
+  try { storedPrefs = JSON.parse(localStorage.getItem("fq-reader") || "{}"); } catch (_) {}
+  const prefs = Object.assign({ theme: "paper", size: 19, lh: 1.95, width: 720, mode: "paged", click: true, wheel: true, swipe: true, keyboard: true }, storedPrefs);
+  if (!["paper", "sepia", "night", "oled"].includes(prefs.theme)) prefs.theme = "paper";
+  prefs.mode = prefs.mode === "scroll" ? "scroll" : "paged";
+  prefs.size = Math.max(13, Math.min(30, Number(prefs.size) || 19));
+  prefs.lh = Math.max(1.4, Math.min(2.6, Number(prefs.lh) || 1.95));
+  prefs.width = [620, 720, 840].includes(Number(prefs.width)) ? Number(prefs.width) : 720;
   let readerState = { book: null, chapters: [], index: -1, itemId: null, session: 0 };
+  const readToc = $("#readToc");
+  let ownedFullscreen = false, fullscreenQueue = Promise.resolve(), layoutFrame = 0;
+  function updateFullscreenControls() {
+    $("#readFullCheck").checked = ownedFullscreen;
+    $("#readFullscreen").textContent = ownedFullscreen ? "退出全屏" : "全屏";
+  }
+  function setReaderFullscreen(enabled) {
+    const session = readerState.session;
+    fullscreenQueue = fullscreenQueue.catch(() => {}).then(async () => {
+      if (enabled && (!readerState.book || readerState.session !== session)) return;
+      if (!enabled && !ownedFullscreen) return;
+      // Smoke/fixture runs must never alter the actual desktop window.
+      const result = window.FQ_SMOKE ? enabled : await invoke("win_fullscreen", { enabled });
+      if (typeof result !== "boolean") throw new Error("全屏接口未返回窗口状态");
+      ownedFullscreen = result;
+      updateFullscreenControls();
+    }).catch(e => { updateFullscreenControls(); toast("切换全屏失败：" + e, true); });
+    return fullscreenQueue;
+  }
+  function textNodes() {
+    const nodes = [], walker = document.createTreeWalker(readBody, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) if (walker.currentNode.length) nodes.push(walker.currentNode);
+    return nodes;
+  }
+  function charRect(node, offset) {
+    const range = document.createRange();
+    range.setStart(node, Math.min(offset, node.length - 1));
+    range.setEnd(node, Math.min(offset + 1, node.length));
+    return range.getBoundingClientRect();
+  }
+  function captureAnchor() {
+    const st = readerState;
+    if (!st.ready) return null;
+    const base = readBody.getBoundingClientRect();
+    const top = readScroll.getBoundingClientRect().top + 1;
+    for (const node of textNodes()) {
+      const after = offset => {
+        const rect = charRect(node, offset);
+        return st.layoutMode === "paged" ? rect.left - base.left >= st.page * st.stride - 1 : rect.bottom >= top;
+      };
+      if (!after(node.length - 1)) continue;
+      let lo = 0, hi = node.length - 1;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (after(mid)) hi = mid; else lo = mid + 1; }
+      return { node, offset: lo };
+    }
+    return null;
+  }
+  function updatePageControls() {
+    const st = readerState, ready = !!st.ready && !st.loading;
+    const paged = prefs.mode === "paged";
+    $("#readPrev").textContent = paged ? "← 上一页" : "← 上一章";
+    $("#readNext").textContent = paged ? "下一页 →" : "下一章 →";
+    $("#readPrev").disabled = !ready || (st.index <= 0 && (!paged || st.page <= 0));
+    $("#readNext").disabled = !ready || (st.index >= st.chapters.length - 1 && (!paged || st.page >= st.pages - 1));
+    $("#readPageStatus").textContent = !ready ? (st.loading ? "正在加载…" : "尚未加载 / 加载失败") : paged ? `当前章第 ${st.page + 1} / ${st.pages} 页` : "当前章 · 滚动阅读";
+    $("#readPageInput").disabled = $("#readPageGo").disabled = !ready || !paged;
+    $("#readPageInput").value = ready && paged ? String(st.page + 1) : "";
+    $("#readPageForm").hidden = !paged;
+  }
+  function showPage(page) {
+    const st = readerState;
+    st.page = Math.max(0, Math.min(st.pages - 1, page));
+    readBody.style.transform = `translateX(${-st.page * st.stride}px)`;
+    readScroll.scrollLeft = readScroll.scrollTop = 0;
+    st.anchor = captureAnchor();
+    updatePageControls();
+  }
+  function layoutReader(anchor = readerState.anchor) {
+    const st = readerState;
+    if (!st.ready || !readScroll.clientHeight || !readScroll.clientWidth) return;
+    readBody.style.cssText = "";
+    readScroll.style.clipPath = "";
+    readScroll.scrollTop = readScroll.scrollLeft = 0;
+    reader.classList.toggle("paged", prefs.mode === "paged");
+    st.layoutMode = prefs.mode;
+    if (prefs.mode === "paged") {
+      const width = Math.max(1, Math.min(prefs.width, readScroll.clientWidth) - 64);
+      st.stride = width + 64;
+      readScroll.style.clipPath = `inset(0 ${(readScroll.clientWidth - width) / 2}px)`;
+      readBody.style.width = width + "px";
+      readBody.style.height = Math.max(1, readScroll.clientHeight - 48) + "px";
+      readBody.style.margin = `24px ${(readScroll.clientWidth - width) / 2}px`;
+      readBody.style.columnWidth = width + "px";
+      st.pages = st.empty ? 1 : Math.max(1, Math.ceil((readBody.scrollWidth + 64 - 1) / st.stride));
+      let page = 0;
+      if (anchor && readBody.contains(anchor.node)) page = Math.floor((charRect(anchor.node, anchor.offset).left - readBody.getBoundingClientRect().left + 1) / st.stride);
+      if (st.landLast) page = st.pages - 1;
+      st.landLast = false;
+      showPage(page);
+    } else {
+      st.pages = 1; st.page = 0;
+      if (st.landLast) readScroll.scrollTop = readScroll.scrollHeight;
+      else if (anchor && readBody.contains(anchor.node)) readScroll.scrollTop = charRect(anchor.node, anchor.offset).top - readScroll.getBoundingClientRect().top;
+      st.landLast = false;
+      st.anchor = captureAnchor();
+      updatePageControls();
+    }
+  }
+  function scheduleLayout() {
+    cancelAnimationFrame(layoutFrame);
+    layoutFrame = requestAnimationFrame(() => layoutReader());
+  }
+  new ResizeObserver(scheduleLayout).observe(readScroll);
+  if (document.fonts) document.fonts.ready.then(scheduleLayout);
+  readScroll.addEventListener("scroll", () => { if (prefs.mode === "scroll") readerState.anchor = captureAnchor(); });
+  function renderReaderToc() {
+    const list = $("#readTocList"), st = readerState;
+    list.textContent = "";
+    if (!st.chapters.length) { list.textContent = "目录暂不可用；可关闭目录并重试当前章节。"; return; }
+    st.chapters.forEach((ch, index) => {
+      const button = document.createElement("button");
+      button.textContent = `${index + 1}. ${ch.title || "未命名章节"}${ch.is_lock || ch.need_pay ? " · 锁定" : ""}`;
+      button.classList.toggle("cur", index === st.index);
+      button.setAttribute("aria-current", index === st.index ? "true" : "false");
+      button.disabled = !!st.loading;
+      button.onclick = () => { if (!st.loading && st === readerState) { readToc.classList.remove("open"); loadChapter(ch.item_id); } };
+      list.appendChild(button);
+    });
+    if (readToc.classList.contains("open")) requestAnimationFrame(() => list.querySelector(".cur")?.scrollIntoView({ block: "nearest" }));
+  }
 
   function savePrefs() {
-    localStorage.setItem("fq-reader", JSON.stringify(prefs));
+    readerState.anchor = captureAnchor() || readerState.anchor;
+    try { localStorage.setItem("fq-reader", JSON.stringify(prefs)); } catch (_) {}
     applyPrefs();
   }
   function applyPrefs() {
-    reader.className = "reader theme-" + prefs.theme;
+    reader.className = "reader theme-" + prefs.theme + (prefs.mode === "paged" ? " paged" : "");
+    $("#readMode").value = prefs.mode;
+    ["click", "wheel", "swipe", "keyboard"].forEach(key => { $("#read" + key[0].toUpperCase() + key.slice(1)).checked = !!prefs[key]; });
+    scheduleLayout();
     document.documentElement.style.setProperty("--read-size", prefs.size + "px");
     document.documentElement.style.setProperty("--read-lh", String(prefs.lh));
     document.documentElement.style.setProperty("--read-width", prefs.width + "px");
@@ -1349,13 +1528,54 @@
     $("#lhVal").textContent = Number(prefs.lh).toFixed(2);
     $("#widthSel").value = String(prefs.width);
     document.querySelectorAll(".theme-dot").forEach((d) => d.classList.toggle("sel", d.dataset.theme === prefs.theme));
-    $("#setTheme").textContent = ({ paper: "纸白", sepia: "羊皮", night: "夜间", oled: "纯黑" })[prefs.theme];
-    $("#setSize").textContent = prefs.size + " px";
-    $("#setLh").textContent = Number(prefs.lh).toFixed(2);
+    ["mode", "theme", "size", "lh", "width"].forEach(key => { $("#set" + key[0].toUpperCase() + key.slice(1)).value = String(prefs[key]); });
+    ["click", "wheel", "swipe", "keyboard"].forEach(key => { $("#set" + key[0].toUpperCase() + key.slice(1)).checked = !!prefs[key]; });
   }
   applyPrefs();
+  ["mode", "theme", "size", "lh", "width", "click", "wheel", "swipe", "keyboard"].forEach(key => {
+    const control = $("#set" + key[0].toUpperCase() + key.slice(1));
+    control.onchange = () => {
+      if (control.type === "checkbox") prefs[key] = control.checked;
+      else if (["size", "lh", "width"].includes(key)) {
+        if (!control.checkValidity() || !control.value) { applyPrefs(); return; }
+        prefs[key] = Number(control.value);
+      } else prefs[key] = control.value;
+      savePrefs();
+    };
+  });
+  let bossBusy = false;
+  function paintBossStatus(status) {
+    $("#bossEnabled").checked = status.enabled;
+    $("#bossStatus").textContent = status.error || (status.smoke ? "测试模式：不注册全局快捷键。" : !status.enabled ? "老板键已停用。" : status.registered ? "Alt+Z 已注册，可隐藏 / 恢复主窗口。" : "Alt+Z 尚未注册，请重试。");
+  }
+  async function refreshBossStatus() {
+    if (bossBusy) return;
+    bossBusy = true;
+    $("#bossEnabled").disabled = $("#bossRetry").disabled = true;
+    try { paintBossStatus(await invoke("boss_key_status")); }
+    catch (e) { $("#bossStatus").textContent = "读取失败：" + e; }
+    finally { bossBusy = false; $("#bossEnabled").disabled = $("#bossRetry").disabled = false; }
+  }
+  async function setBossEnabled() {
+    if (bossBusy) return;
+    bossBusy = true;
+    $("#bossEnabled").disabled = $("#bossRetry").disabled = true;
+    try { paintBossStatus(await invoke("boss_key_set_enabled", { enabled: $("#bossEnabled").checked })); }
+    catch (e) {
+      $("#bossStatus").textContent = "保存失败：" + e;
+      try { const status = await invoke("boss_key_status"); $("#bossEnabled").checked = status.enabled; } catch (_) {}
+    }
+    finally { bossBusy = false; $("#bossEnabled").disabled = $("#bossRetry").disabled = false; }
+  }
+  $("#bossEnabled").onchange = setBossEnabled;
+  $("#bossRetry").onclick = setBossEnabled;
 
   function invalidateReading() {
+    setReaderFullscreen(false);
+    cancelAnimationFrame(layoutFrame);
+    readBody.style.cssText = "";
+    readScroll.style.clipPath = "";
+    readToc.classList.remove("open");
     detailGeneration++;
     readerState = { book: null, chapters: [], index: -1, itemId: null, session: readerState.session + 1 };
     $("#view-reader").style.display = "none";
@@ -1385,9 +1605,15 @@
     loadChapter(itemId);
   }
 
-  async function loadChapter(itemId) {
+  async function loadChapter(itemId, landLast = false) {
     const st = readerState;
-    if (!st.book) return;
+    if (!st.book || st.loading) return;
+    st.loading = true; st.ready = false; st.anchor = null; st.landLast = landLast;
+    st.page = 0; st.pages = 1; st.empty = false;
+    readBody.style.cssText = "";
+    readScroll.style.clipPath = "";
+    readScroll.scrollTop = readScroll.scrollLeft = 0;
+    updatePageControls();
     const session = st.session;
     const request = ++st.request;
     const valid = () => session === readerState.session && request === st.request;
@@ -1395,6 +1621,7 @@
     const idx = st.chapters.findIndex((c) => c.item_id === itemId);
     if (idx >= 0) st.index = idx;
     const ch = st.chapters[st.index];
+    renderReaderToc();
     readBody.innerHTML = '<div style="text-align:center;padding:80px 0;opacity:.6"><span class="spinner"></span></div>';
     $("#readTitle").textContent = (ch ? ch.title : "") || st.book.name || "";
     try {
@@ -1410,9 +1637,10 @@
       if (!lines.length) readBody.appendChild(el("p", null, "本章暂无正文。"));
       $("#readProgress").style.width = st.chapters.length
         ? (((st.index + 1) / st.chapters.length) * 100).toFixed(2) + "%" : "0%";
-      $("#readPrev").disabled = st.index <= 0;
-      $("#readNext").disabled = st.index >= st.chapters.length - 1;
-      readScroll.scrollTop = 0;
+      st.empty = !lines.length;
+      st.loading = false; st.ready = true;
+      layoutReader(null);
+      renderReaderToc();
       const chNum = (ch && ch.order) || st.index + 1;
       invoke("set_progress", { bookId: st.book.book_id, itemId, chapterOrder: chNum, accountId: st.accountId })
         .catch(e => { if (valid()) toast("阅读进度保存失败：" + e, true); });
@@ -1429,15 +1657,23 @@
       box.appendChild(retry);
       readBody.innerHTML = "";
       readBody.appendChild(box);
+      st.loading = false; st.ready = false;
+      updatePageControls();
+      renderReaderToc();
     }
   }
 
   function step(delta) {
     const st = readerState;
+    if (!st.ready || st.loading) return;
+    if (prefs.mode === "paged") {
+      const page = st.page + delta;
+      if (page >= 0 && page < st.pages) { showPage(page); return; }
+    }
     if (!st.chapters.length) return;
     const next = st.index + delta;
     if (next < 0 || next >= st.chapters.length) { toast(delta > 0 ? "已经是最后一章" : "已经是第一章"); return; }
-    loadChapter(st.chapters[next].item_id);
+    loadChapter(st.chapters[next].item_id, delta < 0);
   }
   $("#readPrev").onclick = () => step(-1);
   $("#readNext").onclick = () => step(1);
@@ -1448,11 +1684,76 @@
     else goBack();
   }
   $("#readBack").onclick = returnToDirectory;
-  $("#readTocBtn").onclick = returnToDirectory;
-
-  $("#readSetBtn").onclick = (e) => { e.stopPropagation(); readPop.classList.toggle("open"); };
-  readPop.addEventListener("click", (e) => e.stopPropagation());
-  document.addEventListener("click", () => readPop.classList.remove("open"));
+  $("#readTocBtn").onclick = (e) => {
+    e.stopPropagation(); readPop.classList.remove("open"); readToc.classList.toggle("open"); renderReaderToc();
+  };
+  $("#readSetBtn").onclick = (e) => { e.stopPropagation(); readToc.classList.remove("open"); readPop.classList.toggle("open"); };
+  [readPop, readToc].forEach(panel => panel.addEventListener("click", e => e.stopPropagation()));
+  document.addEventListener("click", () => { readPop.classList.remove("open"); readToc.classList.remove("open"); });
+  $("#readMode").onchange = () => { prefs.mode = $("#readMode").value; savePrefs(); };
+  ["click", "wheel", "swipe", "keyboard"].forEach(key => {
+    const input = $("#read" + key[0].toUpperCase() + key.slice(1));
+    input.onchange = () => { prefs[key] = input.checked; savePrefs(); };
+  });
+  $("#readFullscreen").onclick = () => setReaderFullscreen(!ownedFullscreen);
+  $("#readFullCheck").onchange = () => setReaderFullscreen($("#readFullCheck").checked);
+  [["readMin", "win_min"], ["readMax", "win_max_toggle"], ["readClose", "win_close"]].forEach(([id, command]) => {
+    $("#" + id).onclick = e => { e.stopPropagation(); invoke(command).catch(() => {}); };
+  });
+  $("#readPageForm").onsubmit = e => {
+    e.preventDefault();
+    const st = readerState, value = $("#readPageInput").value.trim();
+    if (!st.ready || st.loading || prefs.mode !== "paged") return;
+    const page = Number(value);
+    if (!/^\d+$/.test(value) || !Number.isSafeInteger(page) || page < 1 || page > st.pages) {
+      toast(`请输入当前章 1 至 ${st.pages} 之间的整数页码`, true); return;
+    }
+    showPage(page - 1);
+  };
+  function inputTarget(target) { return target instanceof Element && !!target.closest("button,input,select,textarea,a,[contenteditable],.rpop"); }
+  function canGesture(e) {
+    return document.body.classList.contains("reader-mode") && prefs.mode === "paged" && readerState.ready && !readerState.loading
+      && !readPop.classList.contains("open") && !readToc.classList.contains("open")
+      && !inputTarget(e.target) && !String(window.getSelection());
+  }
+  let gesture = null, suppressClickUntil = 0, wheelTimer = 0, wheelQuiet = true;
+  readScroll.addEventListener("pointerdown", e => {
+    gesture = null;
+    if (e.button !== 0 || !e.isPrimary || !canGesture(e)) return;
+    gesture = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false, session: readerState.session, request: readerState.request };
+    if (prefs.swipe) readScroll.setPointerCapture(e.pointerId);
+  });
+  readScroll.addEventListener("pointermove", e => {
+    if (gesture && gesture.id === e.pointerId && (Math.abs(e.clientX - gesture.x) > 8 || Math.abs(e.clientY - gesture.y) > 8)) gesture.moved = true;
+  });
+  readScroll.addEventListener("pointerup", e => {
+    const g = gesture;
+    if (!g || g.id !== e.pointerId) return;
+    gesture = null;
+    if (readScroll.hasPointerCapture(e.pointerId)) readScroll.releasePointerCapture(e.pointerId);
+    if (g.moved || e.pointerType !== "mouse") suppressClickUntil = performance.now() + 500;
+    if (!canGesture(e) || g.session !== readerState.session || g.request !== readerState.request) return;
+    const dx = e.clientX - g.x, dy = e.clientY - g.y;
+    if (prefs.swipe && g.moved && Math.abs(dx) >= 45 && Math.abs(dx) > Math.abs(dy) * 1.3) step(dx > 0 ? -1 : 1);
+  });
+  readScroll.addEventListener("pointercancel", () => { gesture = null; suppressClickUntil = performance.now() + 500; });
+  readScroll.addEventListener("lostpointercapture", () => { if (gesture) { gesture = null; suppressClickUntil = performance.now() + 500; } });
+  readScroll.addEventListener("click", e => {
+    if (e.button !== 0 || !prefs.click || performance.now() < suppressClickUntil || !canGesture(e)) return;
+    if (e.detail > 1) return;
+    step(1);
+  });
+  readScroll.addEventListener("wheel", e => {
+    if (!prefs.wheel || prefs.mode !== "paged" || !document.body.classList.contains("reader-mode")
+      || readPop.classList.contains("open") || readToc.classList.contains("open") || inputTarget(e.target)
+      || e.ctrlKey || Math.abs(e.deltaY) < Math.abs(e.deltaX) || !e.deltaY) return;
+    e.preventDefault();
+    clearTimeout(wheelTimer);
+    wheelTimer = setTimeout(() => { wheelQuiet = true; }, 300);
+    if (!wheelQuiet) return;
+    wheelQuiet = false;
+    if (canGesture(e)) step(e.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
   document.querySelectorAll(".theme-dot").forEach((d) => {
     d.onclick = () => { prefs.theme = d.dataset.theme; savePrefs(); };
   });
@@ -1463,11 +1764,18 @@
   $("#widthSel").onchange = () => { prefs.width = +$("#widthSel").value; savePrefs(); };
 
   document.addEventListener("keydown", (e) => {
-    if (document.body.classList.contains("reader-mode")) {
-      if (e.key === "Escape") { readPop.classList.remove("open"); returnToDirectory(); }
-      if (e.key === "ArrowLeft") step(-1);
-      if (e.key === "ArrowRight") step(1);
+    if (!document.body.classList.contains("reader-mode")) return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      if (readPop.classList.contains("open") || readToc.classList.contains("open")) { readPop.classList.remove("open"); readToc.classList.remove("open"); }
+      else if (ownedFullscreen) setReaderFullscreen(false);
+      else returnToDirectory();
+      return;
     }
+    if (!prefs.keyboard || prefs.mode !== "paged" || inputTarget(e.target) || e.ctrlKey || e.altKey || e.metaKey
+      || readPop.classList.contains("open") || readToc.classList.contains("open")) return;
+    const delta = ["ArrowRight", "PageDown", " "].includes(e.key) ? 1 : ["ArrowLeft", "PageUp"].includes(e.key) ? -1 : 0;
+    if (delta) { e.preventDefault(); if (!e.repeat && !String(window.getSelection())) step(delta); }
   });
 
   /* ---------- boot ---------- */

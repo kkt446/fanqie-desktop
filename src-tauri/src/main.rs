@@ -355,7 +355,7 @@ async fn start_login(app: AppHandle) -> Result<(), String> {
         let close_win = win.clone();
         win.on_window_event(move |event| { if let tauri::WindowEvent::CloseRequested { api, .. } = event { api.prevent_close(); let _ = close_win.hide(); } });
         *login = Some(path);
-        win.show().map_err(|e| e.to_string())
+        show_main(&win)
     }).await
 }
 fn clean_login(app: &AppHandle, login: &mut Option<std::path::PathBuf>) -> Result<(), String> {
@@ -411,8 +411,127 @@ fn win_max_toggle(window: tauri::WebviewWindow) -> Result<bool, String> {
 }
 
 #[tauri::command]
+fn win_fullscreen(window: tauri::WebviewWindow, enabled: bool) -> Result<bool, String> {
+    if std::env::var("FQ_SMOKE").as_deref() == Ok("1") {
+        return Ok(false);
+    }
+    window.set_fullscreen(enabled).map_err(|e| e.to_string())?;
+    Ok(enabled)
+}
+
+#[tauri::command]
 fn win_close(window: tauri::WebviewWindow) -> Result<(), String> {
     window.close().map_err(|e| e.to_string())
+}
+
+#[derive(Serialize, Clone)]
+struct BossKeyStatus {
+    enabled: bool,
+    registered: bool,
+    smoke: bool,
+    error: Option<String>,
+}
+
+struct BossKey(Mutex<BossKeyStatus>);
+
+fn boss_shortcut() -> tauri_plugin_global_shortcut::Shortcut {
+    use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut};
+    Shortcut::new(Some(Modifiers::ALT), Code::KeyZ)
+}
+
+fn smoke_mode() -> bool {
+    std::env::var("FQ_SMOKE").as_deref() == Ok("1")
+}
+
+fn show_main(win: &tauri::WebviewWindow) -> Result<(), String> {
+    if smoke_mode() {
+        #[cfg(target_os = "windows")]
+        {
+            #[link(name = "user32")]
+            extern "system" { fn ShowWindow(hwnd: *mut std::ffi::c_void, command: i32) -> i32; }
+            let hwnd = win.hwnd().map_err(|e| e.to_string())?;
+            unsafe { ShowWindow(hwnd.0 as *mut std::ffi::c_void, 4); }
+            return Ok(());
+        }
+        #[cfg(not(target_os = "windows"))]
+        return Err("离屏显示测试仅支持 Windows".into());
+    }
+    win.show().map_err(|e| e.to_string())
+}
+
+fn toggle_main(app: &AppHandle) -> Result<bool, String> {
+    let win = app.get_webview_window("main").ok_or("主窗口不存在")?;
+    #[cfg(target_os = "windows")]
+    let visible = {
+        #[link(name = "user32")]
+        extern "system" { fn IsWindowVisible(hwnd: *mut std::ffi::c_void) -> i32; }
+        let hwnd = win.hwnd().map_err(|e| e.to_string())?;
+        unsafe { IsWindowVisible(hwnd.0 as *mut std::ffi::c_void) != 0 }
+    };
+    #[cfg(not(target_os = "windows"))]
+    let visible = win.is_visible().map_err(|e| e.to_string())?;
+    if visible {
+        if smoke_mode() {
+            #[cfg(target_os = "windows")]
+            {
+                #[link(name = "user32")]
+                extern "system" { fn ShowWindow(hwnd: *mut std::ffi::c_void, command: i32) -> i32; }
+                let hwnd = win.hwnd().map_err(|e| e.to_string())?;
+                unsafe { ShowWindow(hwnd.0 as *mut std::ffi::c_void, 0); }
+            }
+        } else {
+            win.hide().map_err(|e| e.to_string())?;
+        }
+        Ok(false)
+    } else {
+        if smoke_mode() {
+            win.set_position(tauri::PhysicalPosition::new(-20000i32, -20000i32)).map_err(|e| e.to_string())?;
+        } else {
+            win.unminimize().map_err(|e| e.to_string())?;
+        }
+        show_main(&win)?;
+        if !smoke_mode() { win.set_focus().map_err(|e| e.to_string())?; }
+        Ok(true)
+    }
+}
+
+fn register_boss_key(app: &AppHandle, status: &mut BossKeyStatus) {
+    use tauri_plugin_global_shortcut::GlobalShortcutExt;
+    status.error = None;
+    if status.smoke || !status.enabled || status.registered { return; }
+    match app.global_shortcut().register(boss_shortcut()) {
+        Ok(()) => status.registered = true,
+        Err(e) => status.error = Some(format!("Alt+Z 注册失败，可能被其他应用占用：{e}")),
+    }
+}
+
+#[tauri::command]
+fn boss_key_status(st: State<'_, BossKey>) -> BossKeyStatus {
+    st.0.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn boss_key_set_enabled(app: AppHandle, st: State<'_, BossKey>, enabled: bool) -> Result<BossKeyStatus, String> {
+    use tauri_plugin_global_shortcut::GlobalShortcutExt;
+    let mut status = st.0.lock().unwrap();
+    std::fs::create_dir_all(data_dir()).map_err(|e| e.to_string())?;
+    std::fs::write(data_dir().join("boss-key.json"), serde_json::to_vec(&enabled).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    status.enabled = enabled;
+    status.error = None;
+    if !enabled && status.registered {
+        match app.global_shortcut().unregister(boss_shortcut()) {
+            Ok(()) => status.registered = false,
+            Err(e) => status.error = Some(format!("停用快捷键失败，请重试：{e}")),
+        }
+    }
+    register_boss_key(&app, &mut status);
+    Ok(status.clone())
+}
+
+#[tauri::command]
+fn boss_key_smoke_toggle(app: AppHandle) -> Result<bool, String> {
+    if !smoke_mode() { return Err("仅限 FQ_SMOKE 测试".into()); }
+    toggle_main(&app)
 }
 
 fn main() {
@@ -423,6 +542,22 @@ fn main() {
     let accounts = Accounts::open(data_dir()).expect("open account storage");
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(|app, shortcut, event| {
+            use tauri_plugin_global_shortcut::ShortcutState;
+            if shortcut == &boss_shortcut() && event.state == ShortcutState::Pressed && !smoke_mode() {
+                let st = app.state::<BossKey>();
+                let mut status = st.0.lock().unwrap();
+                if status.enabled {
+                    if let Err(e) = toggle_main(app) { status.error = Some(e); }
+                }
+            }
+        }).build())
+        .manage(BossKey(Mutex::new(BossKeyStatus {
+            enabled: std::fs::read(data_dir().join("boss-key.json")).ok().and_then(|bytes| serde_json::from_slice::<bool>(&bytes).ok()).unwrap_or(true),
+            registered: false,
+            smoke,
+            error: None,
+        })))
         .manage(AppState {
             client: Mutex::new(client),
             accounts: Mutex::new(accounts),
@@ -442,13 +577,15 @@ fn main() {
             .min_inner_size(900.0, 600.0)
             .decorations(false);
             if smoke {
-                w = w.visible(false).skip_taskbar(true);
+                w = w.visible(false).focused(false).skip_taskbar(true);
             }
             let win = w.build()?;
             if smoke {
                 win.set_position(tauri::PhysicalPosition::new(-20000i32, -20000i32))?;
-                win.show()?;
+                show_main(&win).map_err(std::io::Error::other)?;
             }
+
+            register_boss_key(app.handle(), &mut app.state::<BossKey>().0.lock().unwrap());
 
             let signer_url = tauri::Url::parse("https://fanqienovel.com/")?;
             let mut sb = tauri::WebviewWindowBuilder::new(
@@ -468,7 +605,7 @@ fn main() {
             let signer = sb.build()?;
             if std::env::var("FQ_SIGNER_OFFSCREEN").as_deref() == Ok("1") {
                 signer.set_position(tauri::PhysicalPosition::new(-20000i32, -20000i32))?;
-                signer.show()?;
+                show_main(&signer).map_err(std::io::Error::other)?;
             }
             Ok(())
         })
@@ -498,7 +635,11 @@ fn main() {
             set_progress,
             win_min,
             win_max_toggle,
-            win_close
+            win_fullscreen,
+            win_close,
+            boss_key_status,
+            boss_key_set_enabled,
+            boss_key_smoke_toggle
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

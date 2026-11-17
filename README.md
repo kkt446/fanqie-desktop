@@ -12,7 +12,9 @@
 
 ## 使用
 
-免安装版解压后运行 `fanqie-desktop.exe`。电脑需要安装 Microsoft Edge WebView2 Runtime。
+推荐使用 Windows 安装包。双击 `番茄小说_0.1.0_x64-setup.exe`，按提示安装后可从桌面或开始菜单启动。缺少 WebView2 时，安装程序会联网从微软下载并安装；下载失败会提示重试，不会把运行环境未就绪当作安装完成。
+
+免安装版仍可解压后运行 `fanqie-desktop.exe`，但需要自行准备 WebView2 Runtime。
 
 添加账号会打开官方登录页面。账号数据保存在 `%APPDATA%\fanqie-desktop`，登录凭据使用 Windows DPAPI 加密，不会随程序打包。
 

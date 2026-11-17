@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-boss-key-smoke-toggle"
+description = "Enables the boss_key_smoke_toggle command without any pre-configured scope."
+commands.allow = ["boss_key_smoke_toggle"]
+
+[[permission]]
+identifier = "deny-boss-key-smoke-toggle"
+description = "Denies the boss_key_smoke_toggle command without any pre-configured scope."
+commands.deny = ["boss_key_smoke_toggle"]

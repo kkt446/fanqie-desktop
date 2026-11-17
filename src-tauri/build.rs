@@ -27,7 +27,11 @@ fn main() {
                 "set_progress",
                 "win_min",
                 "win_max_toggle",
+                "win_fullscreen",
                 "win_close",
+                "boss_key_status",
+                "boss_key_set_enabled",
+                "boss_key_smoke_toggle",
             ]),
         ),
     )

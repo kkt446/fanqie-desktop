@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "fanqie-desktop",
+  "productName": "番茄小说",
   "version": "0.1.0",
   "identifier": "com.fanqie.desktop",
   "build": {
@@ -14,7 +14,22 @@
     }
   },
   "bundle": {
-    "active": false,
-    "icon": ["icons/icon.ico"]
+    "active": true,
+    "targets": ["nsis"],
+    "shortDescription": "番茄小说 Windows 桌面阅读客户端",
+    "icon": ["icons/icon.ico"],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["SimpChinese"],
+        "displayLanguageSelector": false,
+        "startMenuFolder": "番茄小说",
+        "installerIcon": "icons/icon.ico"
+      }
+    }
   }
 }
