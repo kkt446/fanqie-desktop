@@ -1807,6 +1807,17 @@
       return;
     }
     if (!bossCapture) return;
+    if (["Control", "Alt", "Shift", "Meta"].includes(e.key)) {
+      e.preventDefault();
+      e.stopPropagation();
+      const held = [];
+      if (e.ctrlKey) held.push("Ctrl");
+      if (e.altKey) held.push("Alt");
+      if (e.shiftKey) held.push("Shift");
+      if (e.metaKey) held.push("Super");
+      $("#bossKeyBtn").textContent = held.length ? held.join(" + ") + " + …" : "请按组合键…";
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     bossCapture = false;
@@ -1817,7 +1828,7 @@
     if (e.altKey) mods.push("Alt");
     if (e.shiftKey) mods.push("Shift");
     if (e.metaKey) mods.push("Super");
-    if (!mods.length || ["Control", "Alt", "Shift", "Meta"].includes(e.key)) {
+    if (!mods.length) {
       paintBossStatus(bossCache || { enabled: true, registered: false, smoke: false, shortcut: "Alt+Z" });
       toast("请同时按住 Ctrl、Alt 或 Shift，再按一个键", true);
       return;
