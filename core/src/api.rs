@@ -125,7 +125,6 @@ impl Client {
         Self {
             http: HttpClient::builder()
                 .user_agent(UA)
-                .cookie_store(false)
                 .timeout(std::time::Duration::from_secs(20))
                 .build()
                 .expect("client"),
@@ -214,6 +213,14 @@ impl Client {
 
     pub fn progress(&mut self) -> Result<Value, String> {
         self.request_json(&format!("{BASE}/api/reader/book/progress"))
+    }
+
+    pub fn fetch_reader_html(&mut self, item_id: &str) -> Result<String, String> {
+        self.request_html(&format!("{BASE}/reader/{item_id}"))
+    }
+
+    pub fn fetch_bytes_pub(&self, url: &str) -> Result<Vec<u8>, String> {
+        self.request_bytes(url)
     }
 
     /// Fetch + font-decode one chapter via the reader page route.

@@ -1,68 +1,45 @@
-use windows::core::{PCWSTR, PWSTR};
-use windows::Win32::Foundation::ERROR_SUCCESS;
-use windows::Win32::Security::Cryptography::{
-    CryptProtectData, CryptUnprotectData, CRYPT_DATA_BLOB, CRYPTPROTECT_PROMPTSTRUCT,
-};
-use windows::Win32::System::Memory::LocalFree;
+use windows::core::PCWSTR;
+use windows::Win32::Foundation::{HLOCAL, LocalFree};
+use windows::Win32::Security::Cryptography::{CryptProtectData, CryptUnprotectData, CRYPT_INTEGER_BLOB};
 
 const ENTROPY: &[u8] = b"fanqie-desktop-v1";
 
 fn dpapi_protect(data: &[u8]) -> Result<Vec<u8>, String> {
     unsafe {
-        let in_blob = CRYPT_DATA_BLOB {
+        let in_blob = CRYPT_INTEGER_BLOB {
             cbData: data.len() as u32,
             pbData: data.as_ptr() as *mut u8,
         };
-        let entropy = CRYPT_DATA_BLOB {
+        let entropy = CRYPT_INTEGER_BLOB {
             cbData: ENTROPY.len() as u32,
             pbData: ENTROPY.as_ptr() as *mut u8,
         };
-        let mut out = CRYPT_DATA_BLOB::default();
-        let hr = CryptProtectData(
-            &in_blob,
-            PCWSTR::null(),
-            Some(&entropy),
-            None,
-            None,
-            Default::default(),
-            &mut out,
-        );
-        if hr != ERROR_SUCCESS {
-            return Err(format!("CryptProtectData failed: {hr:?}"));
-        }
+        let mut out = CRYPT_INTEGER_BLOB::default();
+        CryptProtectData(&in_blob, PCWSTR::null(), Some(&entropy), None, None, 0, &mut out)
+            .map_err(|e| format!("CryptProtectData: {e}"))?;
         let slice = std::slice::from_raw_parts(out.pbData, out.cbData as usize);
         let result = slice.to_vec();
-        LocalFree(windows::Win32::Foundation::HLOCAL(out.pbData as *mut _));
+        let _ = LocalFree(HLOCAL(out.pbData as *mut _));
         Ok(result)
     }
 }
 
 fn dpapi_unprotect(data: &[u8]) -> Result<Vec<u8>, String> {
     unsafe {
-        let in_blob = CRYPT_DATA_BLOB {
+        let in_blob = CRYPT_INTEGER_BLOB {
             cbData: data.len() as u32,
             pbData: data.as_ptr() as *mut u8,
         };
-        let entropy = CRYPT_DATA_BLOB {
+        let entropy = CRYPT_INTEGER_BLOB {
             cbData: ENTROPY.len() as u32,
             pbData: ENTROPY.as_ptr() as *mut u8,
         };
-        let mut out = CRYPT_DATA_BLOB::default();
-        let hr = CryptUnprotectData(
-            &in_blob,
-            Some(&mut PWSTR::null()),
-            Some(&entropy),
-            None,
-            None as Option<*mut CRYPTPROTECT_PROMPTSTRUCT>,
-            Default::default(),
-            &mut out,
-        );
-        if hr != ERROR_SUCCESS {
-            return Err(format!("CryptUnprotectData failed: {hr:?}"));
-        }
+        let mut out = CRYPT_INTEGER_BLOB::default();
+        CryptUnprotectData(&in_blob, None, Some(&entropy), None, None, 0, &mut out)
+            .map_err(|e| format!("CryptUnprotectData: {e}"))?;
         let slice = std::slice::from_raw_parts(out.pbData, out.cbData as usize);
         let result = slice.to_vec();
-        LocalFree(windows::Win32::Foundation::HLOCAL(out.pbData as *mut _));
+        let _ = LocalFree(HLOCAL(out.pbData as *mut _));
         Ok(result)
     }
 }
@@ -108,7 +85,7 @@ mod tests {
         let got = v.load().unwrap().unwrap();
         assert!(got.contains("sessionid"));
         let raw = std::fs::read(&tmp).unwrap();
-        assert!(!raw.iter().any(|b| *b == b'a'));
+        assert!(!raw.windows(9).any(|w| w == b"sessionid"));
         std::fs::remove_file(&tmp).ok();
     }
 }

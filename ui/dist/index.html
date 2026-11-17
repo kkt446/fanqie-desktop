@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>番茄小说</title>
+<style>
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
+    background: radial-gradient(1200px 800px at 20% -10%, #2a2333 0%, #17141d 55%, #100e14 100%);
+    color: #eceaf2; display: flex; align-items: center; justify-content: center;
+  }
+  .card { text-align: center; }
+  .logo {
+    width: 84px; height: 84px; margin: 0 auto 24px; border-radius: 24px;
+    background: linear-gradient(135deg, #ff6a3d, #e8384f);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 42px; box-shadow: 0 12px 40px rgba(232, 56, 79, .35);
+  }
+  h1 { font-size: 26px; font-weight: 600; margin: 0 0 10px; letter-spacing: 1px; }
+  p { color: #9a94a8; margin: 0 0 18px; }
+  code {
+    background: rgba(255,255,255,.07); padding: 4px 10px; border-radius: 8px;
+    font-size: 13px; color: #ffb59e;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">番</div>
+    <h1>番茄小说 · 桌面版</h1>
+    <p>UI 骨架冒烟测试</p>
+    <code id="core">core: waiting…</code>
+  </div>
+  <script>
+    const { invoke } = window.__TAURI__ ? window.__TAURI__.core : { invoke: async () => 'no ipc' };
+    invoke('core_ping').then(r => { document.getElementById('core').textContent = 'core: ' + r; });
+  </script>
+</body>
+</html>
