@@ -1741,6 +1741,7 @@
     $("#bossEnabled").checked = status.enabled;
     $("#bossKeyBtn").textContent = prettyShortcut(status.shortcut || "Alt+Z");
     const name = prettyShortcut(status.shortcut || "Alt+Z");
+    $("#bossStatus").style.color = status.error ? "#ff8a76" : status.notice ? "var(--accent)" : "";
     $("#bossStatus").textContent = status.error || status.notice
       || (status.smoke ? `测试模式：不注册 ${name}。` : !status.enabled ? "老板键已停用。"
       : status.registered ? `${name} 已注册，可隐藏 / 恢复主窗口。`
