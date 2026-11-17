@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-home-rails"
+description = "Enables the home_rails command without any pre-configured scope."
+commands.allow = ["home_rails"]
+
+[[permission]]
+identifier = "deny-home-rails"
+description = "Denies the home_rails command without any pre-configured scope."
+commands.deny = ["home_rails"]

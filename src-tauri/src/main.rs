@@ -201,6 +201,24 @@ async fn shelf(app: AppHandle) -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command]
+async fn home_rails(app: AppHandle) -> Result<serde_json::Value, String> {
+    blocking(&app, |st| {
+        let mut c = st.client.lock().unwrap();
+        Ok(serde_json::to_value(c.home_rails()?).unwrap_or_default())
+    })
+    .await
+}
+
+#[tauri::command]
+async fn community_posts(app: AppHandle) -> Result<serde_json::Value, String> {
+    blocking(&app, |st| {
+        let mut c = st.client.lock().unwrap();
+        Ok(serde_json::to_value(c.community_posts()?).unwrap_or_default())
+    })
+    .await
+}
+
+#[tauri::command]
 async fn search_books(
     app: AppHandle,
     query: String,
@@ -395,6 +413,8 @@ fn main() {
             bridge_deliver,
             account,
             shelf,
+            home_rails,
+            community_posts,
             search_books,
             book_detail,
             directory,

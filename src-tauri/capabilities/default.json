@@ -8,6 +8,8 @@
     "allow-bridge-deliver",
     "allow-account",
     "allow-shelf",
+    "allow-home-rails",
+    "allow-community-posts",
     "allow-search-books",
     "allow-book-detail",
     "allow-directory",

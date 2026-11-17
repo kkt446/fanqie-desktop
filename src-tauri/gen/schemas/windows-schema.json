@@ -201,6 +201,12 @@
           "markdownDescription": "Enables the chapter command without any pre-configured scope."
         },
         {
+          "description": "Enables the community_posts command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-community-posts",
+          "markdownDescription": "Enables the community_posts command without any pre-configured scope."
+        },
+        {
           "description": "Enables the core_ping command without any pre-configured scope.",
           "type": "string",
           "const": "allow-core-ping",
@@ -211,6 +217,12 @@
           "type": "string",
           "const": "allow-directory",
           "markdownDescription": "Enables the directory command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the home_rails command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-home-rails",
+          "markdownDescription": "Enables the home_rails command without any pre-configured scope."
         },
         {
           "description": "Enables the local_books command without any pre-configured scope.",
@@ -291,6 +303,12 @@
           "markdownDescription": "Denies the chapter command without any pre-configured scope."
         },
         {
+          "description": "Denies the community_posts command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-community-posts",
+          "markdownDescription": "Denies the community_posts command without any pre-configured scope."
+        },
+        {
           "description": "Denies the core_ping command without any pre-configured scope.",
           "type": "string",
           "const": "deny-core-ping",
@@ -301,6 +319,12 @@
           "type": "string",
           "const": "deny-directory",
           "markdownDescription": "Denies the directory command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the home_rails command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-home-rails",
+          "markdownDescription": "Denies the home_rails command without any pre-configured scope."
         },
         {
           "description": "Denies the local_books command without any pre-configured scope.",

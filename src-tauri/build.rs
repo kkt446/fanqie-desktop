@@ -7,6 +7,8 @@ fn main() {
                 "bridge_deliver",
                 "account",
                 "shelf",
+                "home_rails",
+                "community_posts",
                 "search_books",
                 "book_detail",
                 "directory",

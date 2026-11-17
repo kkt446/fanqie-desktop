@@ -160,6 +160,29 @@ pub struct ShelfBook {
     pub last_item_id: Option<String>,
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct HomeRail {
+    pub title: String,
+    pub books: Vec<SearchBook>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PostBook {
+    pub name: String,
+    pub author: String,
+    pub cover: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PostCard {
+    pub id: String,
+    pub user: String,
+    pub avatar: String,
+    pub time: String,
+    pub text: String,
+    pub books: Vec<PostBook>,
+}
+
 pub struct Client {
     http: HttpClient,
     pub jar: CookieJar,
@@ -402,6 +425,58 @@ impl Client {
         self.request_bytes(url)
     }
 
+    /// Curated rails from the SSR homepage state (editor picks, weekly hot,
+    /// male/female picks). All plain text — no font obfuscation.
+    pub fn home_rails(&mut self) -> Result<Vec<HomeRail>, String> {
+        let html = self.request_html(&format!("{BASE}/"))?;
+        let state = extract_initial_state(&html).ok_or("INITIAL_STATE not found")?;
+        let home = state.get("home").cloned().unwrap_or(Value::Null);
+        let mut out = Vec::new();
+        for (title, key) in [
+            ("编辑推荐", "editorList"),
+            ("本周热门", "weekList"),
+            ("男频精选", "boyList"),
+            ("女频精选", "girlList"),
+        ] {
+            let list = home
+                .get(key)
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
+            let books: Vec<SearchBook> = list
+                .iter()
+                .map(map_home_book)
+                .filter(|b| !b.book_id.is_empty() && !b.name.is_empty())
+                .collect();
+            if !books.is_empty() {
+                out.push(HomeRail { title: title.to_string(), books });
+            }
+        }
+        Ok(out)
+    }
+
+    /// Reader "推书帖" from the SEO keyword pages (book-recommendation posts
+    /// with author-picked book lists). Each page is plain SSR HTML.
+    pub fn community_posts(&mut self) -> Result<Vec<PostCard>, String> {
+        let mut out = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+        for seed in POST_SEEDS {
+            if out.len() >= 18 {
+                break;
+            }
+            let Ok(html) = self.request_html(&format!("{BASE}/keyword/{seed}")) else {
+                continue;
+            };
+            for (i, p) in parse_posts(&html).into_iter().enumerate() {
+                let key = format!("{}|{}", p.user, p.text);
+                if seen.insert(key) {
+                    out.push(PostCard { id: format!("{seed}-{i}"), ..p });
+                }
+            }
+        }
+        Ok(out)
+    }
+
     /// Fetch + font-decode one chapter via the reader page route.
     pub fn chapter(&mut self, item_id: &str) -> Result<Chapter, String> {
         let html = self.request_html(&format!("{BASE}/reader/{item_id}"))?;
@@ -548,6 +623,143 @@ fn str_field(v: &Value, keys: &[&str]) -> String {
         }
     }
     String::new()
+}
+
+/// SEO keyword pages that carry user "推书帖" (book-recommendation posts).
+const POST_SEEDS: &[&str] = &[
+    "7322677137683531811",
+    "7345198789168318499",
+    "7357073288092370996",
+    "7322677137683531812",
+];
+
+fn map_home_book(v: &Value) -> SearchBook {
+    SearchBook {
+        book_id: str_field(v, &["bookId", "book_id"]),
+        name: str_field(v, &["bookName", "book_name"]),
+        author: str_field(v, &["author", "authorName"]),
+        abstract_text: str_field(v, &["abstract", "book_abstract"]),
+        category: str_field(v, &["category"]),
+        thumb: str_field(v, &["thumbUri", "thumb_url", "thumbUrl"]),
+        word_count: num_field(v, &["wordNumber", "word_count"]),
+        read_count: num_field(v, &["readCount", "read_count"]),
+        last_chapter_title: str_field(v, &["lastChapterTitle"]),
+        creation_status: num_field(v, &["creationStatus", "creation_status"]),
+    }
+}
+
+fn parse_posts(html: &str) -> Vec<PostCard> {
+    const MARK: &str = "<div class=\"post-content\">";
+    let mut out = Vec::new();
+    let mut idx = 0;
+    while let Some(pos) = html[idx..].find(MARK) {
+        let start = idx + pos + MARK.len();
+        let end = html[start..].find(MARK).map(|p| start + p).unwrap_or(html.len());
+        let block = &html[start..end];
+        let user = html_text(between(block, "<div class=\"name\">", "</div>"));
+        let time = html_text(between(block, "<div class=\"time\">", "</div>"));
+        let avatar = img_src(block, "class=\"avatar\"");
+        let text = html_text(
+            tagged_text(block, "<div class=\"post", "</div>")
+                .or_else(|| tagged_text(block, "<a class=\"post", "</a>")),
+        );
+        if !text.is_empty() {
+            out.push(PostCard {
+                id: String::new(),
+                user: if user.is_empty() { "书友".into() } else { user },
+                avatar,
+                time,
+                text,
+                books: parse_post_books(block),
+            });
+        }
+        idx = end;
+    }
+    out
+}
+
+fn parse_post_books(block: &str) -> Vec<PostBook> {
+    const LI: &str = "<li class=\"book\">";
+    let mut out = Vec::new();
+    let mut idx = 0;
+    while let Some(pos) = block[idx..].find(LI) {
+        let start = idx + pos + LI.len();
+        let end = block[start..].find("</li>").map(|p| start + p).unwrap_or(block.len());
+        let li = &block[start..end];
+        let cover = img_src(li, "class=\"book-cover\"");
+        let name = html_text(between(li, "<div class=\"book-name\">", "</div>"));
+        let author = html_text(between(li, "<div class=\"author\">", "</div>"));
+        if !name.is_empty() {
+            out.push(PostBook { name, author, cover });
+        }
+        if out.len() >= 8 {
+            break;
+        }
+        idx = end;
+    }
+    out
+}
+
+fn between(s: &str, open: &str, close: &str) -> Option<String> {
+    let i = s.find(open)? + open.len();
+    let j = s[i..].find(close)? + i;
+    Some(s[i..j].to_string())
+}
+
+/// Inner text of the first tag starting with `open`, skipping its attributes.
+fn tagged_text(s: &str, open: &str, close: &str) -> Option<String> {
+    let i = s.find(open)?;
+    let tag_end = s[i..].find('>')? + i + 1;
+    let j = s[tag_end..].find(close)? + tag_end;
+    Some(s[tag_end..j].to_string())
+}
+
+/// src of the first <img> whose tag contains `needle`.
+fn img_src(s: &str, needle: &str) -> String {
+    let mut idx = 0;
+    while let Some(pos) = s[idx..].find("<img ") {
+        let start = idx + pos;
+        let end = s[start..].find('>').map(|p| start + p + 1).unwrap_or(s.len());
+        let tag = &s[start..end];
+        if tag.contains(needle) {
+            if let Some(v) = between(tag, "src=\"", "\"") {
+                return html_unescape(&v).replace("http://", "https://");
+            }
+        }
+        idx = end;
+    }
+    String::new()
+}
+
+/// Strip HTML comments/tags from a small fragment and unescape entities.
+fn html_text(s: Option<String>) -> String {
+    let raw = s.unwrap_or_default();
+    let mut out = String::with_capacity(raw.len());
+    let mut rest = raw.as_str();
+    while let Some(i) = rest.find('<') {
+        out.push_str(&rest[..i]);
+        match rest[i..].find('>') {
+            Some(j) => rest = &rest[i + j + 1..],
+            None => {
+                rest = "";
+                break;
+            }
+        }
+    }
+    out.push_str(rest);
+    html_unescape(out.trim())
+}
+
+fn html_unescape(s: &str) -> String {
+    s.replace("&amp;", "&")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&apos;", "'")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&nbsp;", " ")
+        .trim()
+        .to_string()
 }
 
 /// `categoryV2` can be a JSON-encoded array of `{name}` objects (sometimes a

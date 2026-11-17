@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-community-posts"
+description = "Enables the community_posts command without any pre-configured scope."
+commands.allow = ["community_posts"]
+
+[[permission]]
+identifier = "deny-community-posts"
+description = "Denies the community_posts command without any pre-configured scope."
+commands.deny = ["community_posts"]
