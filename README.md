@@ -1,5 +1,7 @@
 # 番茄小说桌面版
 
+[▶ 观看宣传片](tools/promo/fanqie-desktop-promo.mp4)（30 秒，含配乐）
+
 一个用 Rust 和 Tauri 写的 Windows 阅读客户端。目前主要在 Windows 11 上测试。
 
 ## 能做什么
