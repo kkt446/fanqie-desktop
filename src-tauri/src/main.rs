@@ -430,7 +430,9 @@ struct BossKeyStatus {
     registered: bool,
     smoke: bool,
     shortcut: String,
+    preferred: String,
     error: Option<String>,
+    notice: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -566,13 +568,55 @@ fn toggle_main(app: &AppHandle) -> Result<bool, String> {
     }
 }
 
+fn shortcut_candidates(text: &str) -> Vec<String> {
+    let parts: Vec<String> = text.split('+').map(|part| part.trim().to_ascii_lowercase()).collect();
+    let has = |name: &str| parts.iter().any(|part| part == name);
+    let (ctrl, shift) = (has("ctrl") || has("control"), has("shift"));
+    let mut out = vec![text.to_string()];
+    let mut push = |candidate: String| {
+        if !out.contains(&candidate) { out.push(candidate); }
+    };
+    if !shift { push(format!("Shift+{text}")); }
+    if !ctrl && !shift {
+        push(format!("Ctrl+{text}"));
+        push(format!("Ctrl+Shift+{text}"));
+    } else if !ctrl {
+        push(format!("Ctrl+{text}"));
+    }
+    out
+}
+
+fn try_register_available(
+    preferred: &str,
+    mut register: impl FnMut(tauri_plugin_global_shortcut::Shortcut) -> Result<(), String>,
+) -> Result<(String, Option<String>), String> {
+    let mut failure = String::new();
+    for candidate in shortcut_candidates(preferred) {
+        let Ok(shortcut) = parse_boss_shortcut(&candidate) else { continue; };
+        match register(shortcut) {
+            Ok(()) => {
+                let notice = (candidate != preferred).then(|| {
+                    format!(
+                        "{preferred} 已被占用（可能来自另一个番茄小说窗口），本次改用 {candidate}。关闭占用方后点「重试」即可切回。"
+                    )
+                });
+                return Ok((candidate, notice));
+            }
+            Err(e) => {
+                if failure.is_empty() { failure = e; }
+            }
+        }
+    }
+    Err(failure)
+}
+
 fn unregister_boss(app: &AppHandle, status: &mut BossKeyStatus) {
     use tauri_plugin_global_shortcut::GlobalShortcutExt;
     if !status.registered { return; }
     match parse_boss_shortcut(&status.shortcut)
         .and_then(|shortcut| app.global_shortcut().unregister(shortcut).map_err(|e| e.to_string()))
     {
-        Ok(()) => status.registered = false,
+        Ok(()) => { status.registered = false; status.notice = None; }
         Err(e) => status.error = Some(format!("停用快捷键失败，请重试：{e}")),
     }
 }
@@ -580,17 +624,27 @@ fn unregister_boss(app: &AppHandle, status: &mut BossKeyStatus) {
 fn register_boss_key(app: &AppHandle, status: &mut BossKeyStatus) {
     use tauri_plugin_global_shortcut::GlobalShortcutExt;
     status.error = None;
+    status.notice = None;
     if status.smoke || !status.enabled || status.registered { return; }
-    match parse_boss_shortcut(&status.shortcut)
-        .and_then(|shortcut| app.global_shortcut().register(shortcut).map_err(|e| e.to_string()))
-    {
-        Ok(()) => status.registered = true,
-        Err(e) => status.error = Some(format!("{} 注册失败，可能已被其他程序占用：{e}", status.shortcut)),
+    let preferred = status.preferred.clone();
+    let register = |shortcut| app.global_shortcut().register(shortcut).map_err(|e| e.to_string());
+    match try_register_available(&preferred, register) {
+        Ok((candidate, notice)) => {
+            status.registered = true;
+            status.shortcut = candidate;
+            status.notice = notice;
+        }
+        Err(failure) => {
+            status.shortcut = preferred.clone();
+            status.error = Some(format!(
+                "{preferred} 注册失败，可能被其他程序或另一个番茄小说窗口占用。关闭占用方后点「重试」，或点击快捷键换一个：{failure}"
+            ));
+        }
     }
 }
 
 fn save_boss_config(status: &BossKeyStatus) -> Result<(), String> {
-    BossKeyConfig { enabled: status.enabled, shortcut: status.shortcut.clone() }.save()
+    BossKeyConfig { enabled: status.enabled, shortcut: status.preferred.clone() }.save()
 }
 
 #[tauri::command]
@@ -602,24 +656,28 @@ fn boss_key_status(st: State<'_, BossKey>) -> BossKeyStatus {
 fn boss_key_set_enabled(app: AppHandle, st: State<'_, BossKey>, enabled: bool) -> Result<BossKeyStatus, String> {
     let mut status = st.0.lock().unwrap();
     status.enabled = enabled;
-    if enabled { register_boss_key(&app, &mut status); } else { unregister_boss(&app, &mut status); }
+    if enabled {
+        status.shortcut = status.preferred.clone();
+        register_boss_key(&app, &mut status);
+    } else {
+        unregister_boss(&app, &mut status);
+    }
     save_boss_config(&status)?;
     Ok(status.clone())
 }
 
 #[tauri::command]
 fn boss_key_set_shortcut(app: AppHandle, st: State<'_, BossKey>, shortcut: String) -> Result<BossKeyStatus, String> {
-    use tauri_plugin_global_shortcut::GlobalShortcutExt;
-    let parsed = parse_boss_shortcut(&shortcut)?;
+    parse_boss_shortcut(&shortcut)?;
     let mut status = st.0.lock().unwrap();
     unregister_boss(&app, &mut status);
     if status.error.is_some() { return Ok(status.clone()); }
-    status.shortcut = shortcut;
+    status.preferred = shortcut;
+    status.shortcut = status.preferred.clone();
+    status.error = None;
+    status.notice = None;
     if status.enabled && !status.smoke {
-        match app.global_shortcut().register(parsed) {
-            Ok(()) => { status.registered = true; status.error = None; }
-            Err(e) => status.error = Some(format!("{} 注册失败，可能已被其他程序占用：{e}", status.shortcut)),
-        }
+        register_boss_key(&app, &mut status);
     }
     save_boss_config(&status)?;
     Ok(status.clone())
@@ -628,7 +686,20 @@ fn boss_key_set_shortcut(app: AppHandle, st: State<'_, BossKey>, shortcut: Strin
 #[tauri::command]
 fn boss_key_retry(app: AppHandle, st: State<'_, BossKey>) -> BossKeyStatus {
     let mut status = st.0.lock().unwrap();
-    if !status.registered { register_boss_key(&app, &mut status); }
+    if status.smoke || !status.enabled { return status.clone(); }
+    status.error = None;
+    status.notice = None;
+    let active = status.shortcut.clone();
+    if status.registered {
+        unregister_boss(&app, &mut status);
+        if status.error.is_some() { return status.clone(); }
+    }
+    status.shortcut = status.preferred.clone();
+    register_boss_key(&app, &mut status);
+    if !status.registered && active != status.preferred {
+        status.shortcut = active;
+        register_boss_key(&app, &mut status);
+    }
     status.clone()
 }
 
@@ -665,8 +736,10 @@ fn main() {
                 enabled: config.enabled,
                 registered: false,
                 smoke,
-                shortcut: config.shortcut,
+                shortcut: config.shortcut.clone(),
+                preferred: config.shortcut,
                 error: None,
+                notice: None,
             })
         }))
         .manage(AppState {
@@ -756,4 +829,43 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn boss_shortcut_candidates_add_missing_modifiers() {
+        assert_eq!(
+            shortcut_candidates("Alt+Z"),
+            ["Alt+Z", "Shift+Alt+Z", "Ctrl+Alt+Z", "Ctrl+Shift+Alt+Z"]
+        );
+        assert_eq!(
+            shortcut_candidates("Ctrl+Alt+Z"),
+            ["Ctrl+Alt+Z", "Shift+Ctrl+Alt+Z"]
+        );
+        assert_eq!(shortcut_candidates("Ctrl+Shift+Z"), ["Ctrl+Shift+Z"]);
+        for shortcut in shortcut_candidates("Alt+Z") {
+            assert!(parse_boss_shortcut(&shortcut).is_ok(), "{shortcut}");
+        }
+    }
+
+    #[test]
+    fn fallback_uses_the_next_free_shortcut() {
+        let mut attempts = 0;
+        let (shortcut, notice) = try_register_available("Alt+Z", |_| {
+            attempts += 1;
+            if attempts == 1 { Err("HotKey already registered".into()) } else { Ok(()) }
+        })
+        .unwrap();
+        assert_eq!(shortcut, "Shift+Alt+Z");
+        assert!(notice.unwrap().contains("Shift+Alt+Z"));
+    }
+
+    #[test]
+    fn fallback_reports_the_first_failure() {
+        let error = try_register_available("Alt+Z", |_| Err("HotKey already registered".into())).unwrap_err();
+        assert!(error.contains("already registered"));
+    }
 }
