@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-resolve-reading-account"
+description = "Enables the resolve_reading_account command without any pre-configured scope."
+commands.allow = ["resolve_reading_account"]
+
+[[permission]]
+identifier = "deny-resolve-reading-account"
+description = "Denies the resolve_reading_account command without any pre-configured scope."
+commands.deny = ["resolve_reading_account"]

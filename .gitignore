@@ -4,3 +4,10 @@ node_modules/
 dist/
 !ui/dist/
 *.bin
+releases/
+*.sqlite
+*.sqlite-*
+*.db
+cookies*.json
+.env
+.env.*

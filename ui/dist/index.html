@@ -361,6 +361,27 @@
     border-radius: 8px; padding: 6px 8px; font-size: 12px; outline: none;
   }
 
+  [hidden] { display: none !important; }
+  button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  #acctCard { width: 100%; border: 0; background: transparent; text-align: left; }
+  #accountMenu { position: fixed; bottom: 86px; left: 16px; width: 310px; max-height: 65vh; overflow: auto; z-index: 100; padding: 12px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 14px; box-shadow: var(--shadow); }
+  #accountMenu button { width: 100%; justify-content: flex-start; white-space: normal; text-align: left; margin: 3px 0; }
+  .account-manager { grid-column: 1 / -1; }
+  #accountList { display:flex;flex-wrap:wrap;align-items:flex-start;gap:14px;margin:24px 0; }
+  .account-row { display:flex;flex-direction:column;gap:10px;align-items:center;width:120px;padding:16px 8px;border:1px solid var(--line);border-radius:16px;text-align:center;background:var(--panel); }
+  .account-row.current { border-color:rgba(255,90,54,.6);background:rgba(255,90,54,.06); }
+  .account-row .avatar { width:52px;height:52px;font-size:22px; }
+  .account-row .who { width:100%;overflow-wrap:anywhere; }
+  .account-row .who b { font-size:12px; }
+  .account-row .who .muted { font-size:10px;margin-top:5px; }
+  .account-row .account-actions { justify-content:center;gap:4px; }
+  .account-row .btn { font-size:11px;padding:5px 8px; }
+  .account-add { cursor:pointer;color:var(--text);font:inherit;min-height:138px; }
+  .account-add .avatar { border:1px dashed var(--text-3);background:transparent;display:grid;place-items:center; }
+  .account-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .account-notice { padding: 12px 14px; margin: 14px 0; border: 1px solid var(--line-strong); background: var(--bg-soft); border-radius: 10px; font-size: 12.5px; line-height: 1.8; white-space: pre-line; overflow-wrap: anywhere; }
+  .account-notice.warning { color: #ffc9a8; border-color: rgba(255,154,80,.3); }
+  #readAccount { font-size: 11px; opacity: .7; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* ---------- settings/account ---------- */
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; max-width: 900px; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
@@ -428,10 +449,11 @@
       <span>账号</span>
     </div>
     <div class="rail-foot">
-      <div class="acct" id="acctCard">
-        <div class="avatar" id="acctAvatar">?</div>
-        <div class="who"><b id="acctName">未登录</b><span id="acctSub">点击查看登录态</span></div>
-      </div>
+      <button class="acct" id="acctCard" aria-haspopup="menu" aria-expanded="false" aria-controls="accountMenu">
+        <span class="avatar" id="acctAvatar">?</span>
+        <span class="who"><b id="acctName">检测中…</b><span id="acctSub">账号菜单</span></span>
+      </button>
+      <div id="accountMenu" role="menu" aria-label="账号菜单" hidden></div>
     </div>
   </aside>
 
@@ -446,6 +468,11 @@
           刷新
         </button>
       </div>
+      <p class="muted">合并各账号可获取的书架与本机阅读记录，不代表全部云端历史。</p>
+      <div id="syncWarnings" class="account-notice warning" role="status" hidden></div>
+      <div id="shelfAccounts" style="display:flex;gap:8px;flex-wrap:wrap;margin:18px 0" aria-label="按账号筛选书架"></div>
+      <div class="searchbox" style="margin-bottom:20px"><input id="shelfSearch" placeholder="搜索书架中的书名或作者" aria-label="搜索书架" autocomplete="off"><button class="btn ghost" id="shelfClear">清空</button></div>
+      <p class="muted" id="shelfCount"></p>
       <div id="shelfGrid"></div>
     </section>
 
@@ -476,6 +503,7 @@
             返回
           </button>
           <div class="rtitle" id="readTitle"></div>
+          <span id="readAccount" aria-label="当前阅读账号"></span>
           <button class="rbtn" id="readTocBtn">目录</button>
           <button class="rbtn" id="readSetBtn">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h10M18 8h2M4 16h4M12 16h8" stroke-linecap="round"/><circle cx="15.5" cy="8" r="1.8"/><circle cx="9.5" cy="16" r="1.8"/></svg>
@@ -519,13 +547,26 @@
     <section class="view" id="view-account" style="display:none">
       <div class="page-head"><h1>账号与设置</h1></div>
       <div class="cards">
-        <div class="card">
-          <h3>登录状态</h3>
-          <div class="kv"><span>账号</span><span id="setName">—</span></div>
-          <div class="kv"><span>状态</span><span id="setState">检测中…</span></div>
-          <div class="kv"><span>凭证存放</span><span>DPAPI 加密 · cookies.bin</span></div>
-          <p class="muted" style="margin:14px 0 0">登录态来自本机番茄网页版 Cookie，经 Windows DPAPI 加密保存，仅当前用户可解密；不会上传到任何第三方。</p>
-          <div style="margin-top:14px"><button class="btn" id="recheck">重新检测</button></div>
+        <div class="card account-manager" id="accountManager">
+          <h3>多账号管理</h3>
+          <div class="kv"><span>当前账号</span><span id="setName">—</span></div>
+          <div class="kv"><span>登录状态</span><span id="setState">检测中…</span></div>
+          <p class="muted">多个账号可保留各自登录态；阅读默认选择读过本书的账号。登录可能过期，请按提示重新登录。</p>
+          <div class="account-actions">
+            <button class="btn ghost" id="recheck" data-account-action>刷新账号列表</button>
+          </div>
+          <div id="accountStatus" class="account-notice" role="status" aria-live="polite">正在读取账号…</div>
+          <div id="accountSyncStatus" class="account-notice" role="status" aria-live="polite">尚未同步</div>
+          <div id="loginPanel" class="account-notice" role="region" aria-label="完成官方登录" hidden>
+            <b>请在官方独立登录窗口中完成登录</b>
+            <p>此页面不收集密码。完成后点击下方按钮；未完成可重试，或取消本次登录。</p>
+            <div class="account-actions"><button class="btn primary" id="finishLogin">已完成登录</button><button class="btn" id="cancelLogin">取消</button></div>
+          </div>
+          <div id="logoutPanel" class="account-notice warning" role="region" aria-label="确认退出账号" hidden>
+            <p id="logoutMessage"></p>
+            <div class="account-actions"><button class="btn" id="confirmLogout">确认退出此账号</button><button class="btn ghost" id="cancelLogout">取消</button></div>
+          </div>
+          <div id="accountList" aria-label="本机账号列表"></div>
         </div>
         <div class="card">
           <h3>阅读偏好</h3>
@@ -612,6 +653,7 @@
   const stack = [];
 
   function nav(name, push) {
+    invalidateReading();
     if (push !== false && name !== current) stack.push(current);
     current = name;
     document.body.classList.remove("reader-mode");
@@ -619,9 +661,10 @@
     document.querySelectorAll(".nav").forEach((n) => n.classList.toggle("active", n.dataset.nav === name));
     if (name === "shelf") loadShelf();
     if (name === "search" && !$("#searchHits").children.length) showDiscover();
-    if (name === "account") loadAccount();
+    closeAccountMenu();
   }
   function paintBack(back) {
+    invalidateReading();
     current = back;
     document.body.classList.remove("reader-mode");
     Object.keys(views).forEach((k) => { views[k].style.display = k === back ? "" : "none"; });
@@ -629,58 +672,232 @@
   }
   function goBack() {
     const back = stack.pop() || "shelf";
+    if (back === "detail") {
+      if (detailBook) { openDetail(detailBook.book_id, null); return; }
+      paintBack("shelf"); loadShelf(); return;
+    }
     paintBack(back);
     if (back === "shelf") loadShelf();
   }
   document.querySelectorAll(".nav").forEach((n) => { n.onclick = () => nav(n.dataset.nav); });
-  $("#acctCard").onclick = () => nav("account");
-
   /* ---------- account ---------- */
-  async function loadAccount() {
-    $("#setState").textContent = "检测中…";
-    try {
-      const a = await invoke("account");
-      const raw = a.raw || {};
-      const name = raw.name || raw.nickname || raw.userName || "读者";
-      const avatar = raw.avatar_url || raw.avatarUrl || raw.avatar || "";
-      paintAccount(name, avatar);
-      $("#setName").textContent = name;
-      $("#setState").textContent = "已登录 · 登录态已持久化";
-    } catch (e) {
-      paintAccount("未登录", "");
-      $("#setName").textContent = "—";
-      $("#setState").textContent = "未检测到登录态";
+  let accounts = [], activeId = null, accountsKnown = false;
+  let accountBusy = false, syncing = false, loginPending = false, logoutTarget = null;
+  let accountEpoch = 0;
+  const accountMenu = $("#accountMenu");
+  function accountStatus(text, error = false) {
+    $("#accountStatus").textContent = text;
+    $("#accountStatus").classList.toggle("warning", error);
+  }
+  function updateBusy() {
+    const blocked = accountBusy || syncing || loginPending || !!logoutTarget;
+    document.querySelectorAll("[data-account-action]").forEach(b => b.disabled = blocked);
+    $("#shelfRefresh").disabled = blocked;
+    $("#finishLogin").disabled = $("#cancelLogin").disabled = accountBusy || syncing;
+    $("#confirmLogout").disabled = $("#cancelLogout").disabled = accountBusy || syncing;
+    $("#accountManager").setAttribute("aria-busy", String(accountBusy || syncing));
+  }
+  function closeAccountMenu(focus = false) {
+    accountMenu.hidden = true;
+    $("#acctCard").setAttribute("aria-expanded", "false");
+    if (focus) $("#acctCard").focus();
+  }
+  function menuButton(label, action, managed = true) {
+    const b = el("button", "btn ghost", esc(label));
+    b.setAttribute("role", "menuitem");
+    if (managed) b.setAttribute("data-account-action", "");
+    b.onclick = () => { closeAccountMenu(); action(); };
+    accountMenu.appendChild(b);
+  }
+  let accountsExpanded = false;
+  function paintAccounts(result) {
+    accounts = result.accounts || [];
+    activeId = result.active_id;
+    accountsKnown = true;
+    const logged = accounts.filter(a => a.logged_in);
+    const active = logged.find(a => a.id === activeId);
+    const name = active ? active.name || "读者" : "未选择账号";
+    $("#acctName").textContent = logged.length ? name : "未登录";
+    $("#acctSub").textContent = logged.length + " 个账号已登录 · 点击管理";
+    $("#acctAvatar").innerHTML = active && active.avatar
+      ? '<img src="' + esc(active.avatar) + '" referrerpolicy="no-referrer" alt="">' : esc(name.slice(0, 1));
+    $("#setName").textContent = active ? name : "—";
+    $("#setState").textContent = logged.length + " 个已登录 / " + accounts.length + " 个本机账号";
+    const list = $("#accountList");
+    list.innerHTML = "";
+    accountMenu.innerHTML = "";
+    accounts.forEach((a, index) => {
+      const row = el("div", "account-row" + (a.id === activeId ? ' current' : ''));
+      row.dataset.accountId = a.id;
+      if (!accountsExpanded && index >= 4) row.style.display = 'none';
+      const avatar = el("div", "avatar");
+      if (a.avatar) avatar.innerHTML = '<img src="' + esc(a.avatar) + '" referrerpolicy="no-referrer" alt="">';
+      else avatar.textContent = (a.name || "读者").slice(0, 1);
+      row.appendChild(avatar);
+      row.appendChild(el("div", "who", '<b>' + esc(a.name || "读者") + '</b><div class="muted">' + (a.logged_in ? (a.id === activeId ? "当前账号" : "已登录") : "未登录 · 保留历史") + '</div>'));
+      const actions = el("div", "account-actions");
+      if (a.logged_in) {
+        if (a.id !== activeId) {
+          const b = el("button", "btn", "切换");
+          b.setAttribute("data-account-action", "");
+          b.onclick = () => switchAccount(a.id);
+          actions.appendChild(b);
+          menuButton("切换至 " + (a.name || a.id), () => switchAccount(a.id));
+        }
+        const b = el("button", "btn ghost", "退出");
+        b.setAttribute("data-account-action", "");
+        b.onclick = () => requestLogout(a);
+        actions.appendChild(b);
+      }
+      row.appendChild(actions); list.appendChild(row);
+    });
+    const add = el('button', 'account-row account-add');
+    add.id = 'addAccountAvatar';
+    add.setAttribute('data-account-action', '');
+    add.setAttribute('aria-label', '添加账号');
+    add.appendChild(el('span', 'avatar', '+'));
+    add.appendChild(el('span', null, '添加账号'));
+    add.onclick = startLogin;
+    list.appendChild(add);
+    if (accounts.length > 4) {
+      const more = el('button', 'account-row account-add');
+      more.id = 'expandAccounts';
+      more.setAttribute('aria-expanded', String(accountsExpanded));
+      more.appendChild(el('span', 'avatar', accountsExpanded ? '−' : '...'));
+      more.appendChild(el('span', null, accountsExpanded ? '收起账号' : '全部 ' + accounts.length + ' 个账号'));
+      more.onclick = () => { accountsExpanded = !accountsExpanded; paintAccounts({accounts,active_id:activeId}); };
+      list.appendChild(more);
     }
+    if (active) menuButton("退出当前账号 · " + name, () => requestLogout(active));
+    menuButton("登录新账号", startLogin);
+    menuButton("多账号管理", () => nav("account"), false);
+    updateBusy();
   }
-  function paintAccount(name, avatar) {
-    $("#acctName").textContent = name;
-    $("#acctSub").textContent = name === "未登录" ? "点击查看登录态" : "已登录";
-    const av = $("#acctAvatar");
-    if (avatar) av.innerHTML = '<img src="' + esc(avatar) + '" referrerpolicy="no-referrer" alt="">';
-    else av.textContent = (name || "?").trim().slice(0, 1);
+  $("#acctCard").onclick = () => {
+    const open = accountMenu.hidden;
+    accountMenu.hidden = !open;
+    $("#acctCard").setAttribute("aria-expanded", String(open));
+    if (open) accountMenu.querySelector("button:not(:disabled)")?.focus();
+  };
+  document.addEventListener("click", e => {
+    if (!accountMenu.contains(e.target) && !$("#acctCard").contains(e.target)) closeAccountMenu();
+  });
+  document.addEventListener("keydown", e => {
+    if (accountMenu.hidden) return;
+    if (e.key === "Escape") { e.preventDefault(); closeAccountMenu(true); }
+    if (["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) {
+      e.preventDefault();
+      const buttons = [...accountMenu.querySelectorAll("button:not(:disabled)")];
+      let i = buttons.indexOf(document.activeElement);
+      i = e.key === "Home" ? 0 : e.key === "End" ? buttons.length - 1 : (i + (e.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
+      buttons[i]?.focus();
+    }
+  });
+  async function loadAccount() {
+    if (accountBusy || syncing || loginPending || logoutTarget) return;
+    accountBusy = true; updateBusy();
+    try { paintAccounts(await invoke("account_list")); accountStatus("账号列表已更新。切换账号不会退出其他账号。"); }
+    catch (e) { accountStatus("读取账号失败，可点击刷新重试：" + e, true); }
+    finally { accountBusy = false; updateBusy(); }
   }
+  function invalidateAccountSession() {
+    accountEpoch++;
+    invalidateReading();
+    detailBook = null; detailChapters = [];
+    if (current === "detail") paintBack("account");
+    $("#detailBody").innerHTML = "";
+  }
+  async function switchAccount(accountId) {
+    if (accountBusy || syncing || loginPending || logoutTarget) return;
+    accountBusy = true; updateBusy(); invalidateAccountSession();
+    try { paintAccounts(await invoke("account_switch", { accountId })); accountStatus("已切换账号，其他账号仍保持登录。"); }
+    catch (e) { accountStatus("切换失败：" + e, true); }
+    finally { accountBusy = false; updateBusy(); }
+    await loadShelf();
+  }
+  function requestLogout(a) {
+    if (accountBusy || syncing || loginPending || logoutTarget) return;
+    nav("account");
+    logoutTarget = a;
+    $("#logoutMessage").textContent = "退出「" + (a.name || a.id) + "」？只移除此账号的本机登录态，保留本机历史；其他账号保留登录。";
+    $("#logoutPanel").hidden = false; updateBusy();
+    $("#cancelLogout").focus();
+  }
+  $("#cancelLogout").onclick = () => { logoutTarget = null; $("#logoutPanel").hidden = true; updateBusy(); };
+  $("#confirmLogout").onclick = async () => {
+    if (!logoutTarget || accountBusy || syncing) return;
+    const accountId = logoutTarget.id;
+    accountBusy = true; updateBusy(); invalidateAccountSession();
+    try {
+      paintAccounts(await invoke("account_logout", { accountId }));
+      logoutTarget = null; $("#logoutPanel").hidden = true;
+      accountStatus("此账号已退出，本机历史已保留，其他账号未退出。");
+    } catch (e) { accountStatus("退出失败，可重试：" + e, true); }
+    finally { accountBusy = false; updateBusy(); }
+    if (!logoutTarget) await loadShelf();
+  };
+  async function startLogin() {
+    if (accountBusy || syncing || loginPending || logoutTarget) return;
+    nav("account");
+    accountBusy = true; updateBusy(); invalidateAccountSession();
+    try {
+      await invoke("start_login");
+      loginPending = true; $("#loginPanel").hidden = false;
+      accountStatus("官方登录窗口已打开，完成后请确认。已有账号不会因此退出。");
+    } catch (e) { accountStatus("打开登录窗口失败：" + e, true); }
+    finally { accountBusy = false; updateBusy(); }
+    if (loginPending) $("#finishLogin").focus();
+  }
+  $("#finishLogin").onclick = async () => {
+    if (!loginPending || accountBusy || syncing) return;
+    accountBusy = true; updateBusy();
+    try {
+      paintAccounts(await invoke("finish_login"));
+      loginPending = false; $("#loginPanel").hidden = true;
+      accountStatus("登录成功，正在刷新账号并同步。");
+    } catch (e) { accountStatus("尚未完成登录或保存失败：" + e + "。可继续在官方窗口操作后重试，或取消。", true); }
+    finally { accountBusy = false; updateBusy(); }
+    if (!loginPending) { await loadAccount(); await loadShelf(); }
+  };
+  $("#cancelLogin").onclick = async () => {
+    if (!loginPending || accountBusy || syncing) return;
+    accountBusy = true; updateBusy();
+    try {
+      await invoke("cancel_login"); loginPending = false;
+      $("#loginPanel").hidden = true; accountStatus("已取消本次登录，已有账号保持不变。");
+    } catch (e) { accountStatus("取消失败，请重试：" + e, true); }
+    finally { accountBusy = false; updateBusy(); }
+  };
   $("#recheck").onclick = loadAccount;
 
   /* ---------- shelf ---------- */
   let shelfData = [];
   async function loadShelf() {
-    $("#shelfSub").textContent = "同步中…";
-    let cloud = [];
-    let local = [];
-    try { cloud = (await invoke("shelf")) || []; } catch (e) {}
-    try { local = (await invoke("local_books")) || []; } catch (e) {}
-    const map = new Map();
-    cloud.forEach((b) => map.set(b.book_id, b));
-    let localOnly = 0;
-    local.forEach((b) => {
-      if (!map.has(b.book_id)) { map.set(b.book_id, b); localOnly++; }
-    });
-    shelfData = Array.from(map.values());
-    $("#shelfSub").textContent = shelfData.length
-      ? (cloud.length ? "云端书架 · " + cloud.length + " 本" : "本机书架 · " + shelfData.length + " 本")
-        + (localOnly && cloud.length ? " · 另有本机 " + localOnly + " 本" : "")
-      : "书架";
-    renderShelf();
+    if (syncing || accountBusy || loginPending || logoutTarget) return;
+    syncing = true; updateBusy();
+    $("#shelfSub").textContent = "正在同步全部账号…";
+    $("#accountSyncStatus").textContent = "正在合并各账号可获取的书架与本机历史…";
+    try {
+      const result = await invoke("sync_accounts");
+      paintAccounts(await invoke("account_list"));
+      shelfData = result.books || [];
+      const warnings = result.warnings || [];
+      const summary = "合并书架 · " + shelfData.length + " 本" + (warnings.length ? " · 部分同步异常" : " · 同步完成");
+      $("#shelfSub").textContent = summary;
+      $("#syncWarnings").hidden = !warnings.length;
+      $("#syncWarnings").textContent = warnings.length ? "部分账号或来源同步未完成，已展示可用结果：\n" + warnings.join("\n") : "";
+      $("#accountSyncStatus").textContent = summary + (warnings.length ? "\n" + warnings.join("\n") : "") + "\n仅包含可获取的记录，不代表全部云端历史。";
+      $("#accountSyncStatus").classList.toggle("warning", !!warnings.length);
+      renderShelf();
+    } catch (e) {
+      const message = "同步失败，保留上次结果；可重试：" + e;
+      $("#shelfSub").textContent = "同步失败";
+      $("#syncWarnings").hidden = false;
+      $("#syncWarnings").textContent = message;
+      $("#accountSyncStatus").textContent = message;
+      $("#accountSyncStatus").classList.add("warning");
+      if (!shelfData.length) $("#shelfGrid").innerHTML = '<div class="empty" style="grid-column:1/-1"><p>未能获取书架，请点击刷新重试。</p></div>';
+    } finally { syncing = false; updateBusy(); }
   }
   function bookCover(url, name) {
     const c = el("div", "cover");
@@ -695,22 +912,57 @@
     }
     return c;
   }
+  let shelfAccount = '';
+  $('#shelfSearch').oninput = () => renderShelf();
+  $('#shelfClear').onclick = () => { $('#shelfSearch').value = ''; renderShelf(); };
   function renderShelf() {
+    const belongs = (b, id) => (b.source_accounts || []).some(a => a.id === id) || b.account_id === id;
+    const categories = accounts.map(a => ({id:a.id, name:a.name}));
+    shelfData.forEach(b => (b.source_accounts || []).forEach(a => {
+      if (!categories.some(c => c.id === a.id)) categories.push(a);
+    }));
+    if (shelfAccount && !categories.some(a => a.id === shelfAccount)) shelfAccount = '';
+    const tabs = $('#shelfAccounts');
+    tabs.innerHTML = '';
+    [{id:'',name:'全部账号'}, ...categories].forEach(a => {
+      const count = a.id ? shelfData.filter(b => belongs(b, a.id)).length : shelfData.length;
+      const tab = el('button', 'btn ' + (shelfAccount === a.id ? 'primary' : 'ghost'));
+      tab.textContent = a.name + ' · ' + count;
+      tab.dataset.accountId = a.id;
+      tab.setAttribute('aria-pressed', String(shelfAccount === a.id));
+      tab.onclick = () => { shelfAccount = a.id; renderShelf(); };
+      tabs.appendChild(tab);
+    });
+    const query = $('#shelfSearch').value.trim().toLocaleLowerCase();
+    const books = shelfData.filter(b => (!shelfAccount || belongs(b, shelfAccount)) && (!query || [b.name,b.author].some(v => (v || '').toLocaleLowerCase().includes(query))));
+    $('#shelfCount').textContent = '显示 ' + books.length + ' 本' + (query ? ' · 搜索结果' : '');
     const grid = $("#shelfGrid");
     grid.innerHTML = "";
+    if (!shelfData.length && accountsKnown && !accounts.some(a => a.logged_in)) {
+      grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>暂无已登录账号，也没有可展示的本机历史</p><p>登录后可合并多个账号可获取的书籍</p><button class="btn primary" id="emptyAddAccount" data-account-action>添加账号</button></div>';
+      $("#emptyAddAccount").onclick = startLogin;
+      updateBusy();
+      return;
+    }
     if (!shelfData.length) {
       grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="big">◫</div><p>书架还是空的</p><p>去搜索找一本想看的书吧</p><div style="margin-top:18px"><button class="btn primary" id="goSearch">去搜索</button></div></div>';
       const b = $("#goSearch");
       if (b) b.onclick = () => nav("search");
       return;
     }
-    shelfData.forEach((b) => {
+    if (!books.length) {
+      grid.appendChild(el('div', 'empty', query ? '没有匹配的书名或作者，试试其他关键词。' : '这个账号还没有可展示的书籍。'));
+      return;
+    }
+    books.forEach((b) => {
       const card = el("div", "book-card");
       const cover = bookCover(b.thumb, b.name);
       if (b.last_item_id) cover.appendChild(el("div", "tag", b.chapter_order ? "读至第" + b.chapter_order + "章" : "继续阅读"));
       card.appendChild(cover);
       card.appendChild(el("div", "t", esc(b.name)));
       card.appendChild(el("div", "a", esc(b.author || "")));
+      const sources = (b.source_accounts || []).map(a => a.name || a.id);
+      if (sources.length || b.account_name) card.appendChild(el("div", "a", "来源 · " + esc(sources.join("、") || b.account_name)));
       card.onclick = () => openDetail(b.book_id, b.last_item_id);
       grid.appendChild(card);
     });
@@ -770,6 +1022,13 @@
       const list = el("div", "posts");
       d.posts.slice(0, 12).forEach((p) => {
         const card = el("div", "post-card");
+        card.tabIndex = 0;
+        card.setAttribute("role", "button");
+        card.setAttribute("aria-label", p.user + "的帖子详情");
+        card.onclick = () => openPostDetail(p);
+        card.onkeydown = (e) => {
+          if (e.target === card && e.key === "Enter") { e.preventDefault(); openPostDetail(p); }
+        };
         const pu = el("div", "pu");
         if (p.avatar) {
           const av = el("img", "av");
@@ -788,7 +1047,8 @@
         if (p.text.length > 200) {
           txt.classList.add("clamp");
           const more = el("button", "linkbtn more", "展开全文");
-          more.onclick = () => {
+          more.onclick = (e) => {
+            e.stopPropagation();
             const open = txt.classList.toggle("clamp");
             more.textContent = open ? "展开全文" : "收起";
           };
@@ -809,7 +1069,7 @@
             bi.appendChild(el("div", "bn", esc(b.name)));
             if (b.author) bi.appendChild(el("div", "ba", esc(b.author)));
             chip.appendChild(bi);
-            chip.onclick = () => openBookByName(b.name);
+            chip.onclick = (e) => { e.stopPropagation(); openBookByName(b.name); };
             row.appendChild(chip);
           });
           card.appendChild(row);
@@ -820,15 +1080,63 @@
       box.appendChild(sec);
     }
   }
+  let postRequest = 0;
+  const postDialog = document.createElement('dialog');
+  postDialog.id = 'postDialog';
+  postDialog.style.cssText = 'width:min(760px,85vw);max-height:85vh;overflow:auto;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:18px;padding:26px';
+  document.body.appendChild(postDialog);
+  postDialog.addEventListener('close', () => { if (!postDialog.open) postRequest++; });
+  async function openPostDetail(p) {
+    const request = ++postRequest;
+    postDialog.innerHTML = '';
+    const close = el('button', 'btn', '关闭');
+    close.onclick = () => postDialog.close();
+    postDialog.appendChild(close);
+    postDialog.appendChild(el('h2', null, esc(p.user + '的帖子')));
+    const text = el('div', 'text', esc(p.text));
+    text.style.cssText = 'white-space:pre-wrap;line-height:1.85;margin:20px 0';
+    postDialog.appendChild(text);
+    const comments = el('div');
+    postDialog.appendChild(comments);
+    if (!postDialog.open) postDialog.showModal();
+    async function load() {
+      comments.textContent = '正在加载评论…';
+      try {
+        if (!p.book_id) throw new Error('官方页面未提供可查询的图书标识');
+        const detail = await invoke('post_detail', { bookId: p.book_id, postId: p.id });
+        if (request !== postRequest || !postDialog.open) return;
+        text.textContent = detail.text;
+        comments.innerHTML = '';
+        comments.appendChild(el('h3', null, '评论 · ' + detail.total));
+        (detail.replies || []).forEach(r => {
+          const reply = el('div', 'post-card');
+          reply.appendChild(el('div', 'pn', esc(r.user || '书友')));
+          reply.appendChild(el('div', 'text', esc(r.text)));
+          comments.appendChild(reply);
+        });
+        if (!detail.total) comments.appendChild(el('p', null, '暂无评论'));
+        if (detail.notice) comments.appendChild(el('p', null, esc(detail.notice)));
+      } catch (e) {
+        if (request !== postRequest || !postDialog.open) return;
+        comments.textContent = '评论加载失败：' + e;
+        const retry = el('button', 'btn', '重试');
+        retry.onclick = load;
+        comments.appendChild(retry);
+      }
+    }
+    await load();
+  }
   async function openBookByName(name) {
+    const generation = ++detailGeneration;
     toast("正在查找《" + name + "》…");
     try {
       const list = (await invoke("search_books", { query: name })) || [];
+      if (generation !== detailGeneration) return;
       const hit = list.find((b) => b.name === name) || list[0];
       if (hit) openDetail(hit.book_id, null);
       else toast("没有找到这本书", true);
     } catch (e) {
-      toast("查找失败：" + e, true);
+      if (generation === detailGeneration) toast("查找失败：" + e, true);
     }
   }
   function resultsToolbar(count) {
@@ -885,9 +1193,12 @@
         const addBtn = el("button", "btn", "加入书架");
         addBtn.onclick = async (e) => {
           e.stopPropagation();
+          if (addBtn.disabled) return;
           addBtn.disabled = true;
-          try { await invoke("remember_book", { bookId: b.book_id }); addBtn.textContent = "已加入"; toast("已加入本机书架"); }
-          catch (err) { addBtn.disabled = false; toast("加入失败：" + err, true); }
+          const generation = detailGeneration;
+          try { await rememberBook(b.book_id); if (generation !== detailGeneration) return; addBtn.textContent = "已加入"; toast("已加入本机书架"); }
+          catch (err) { addBtn.disabled = false; if (generation === detailGeneration) toast("加入失败：" + err, true); }
+          finally { if (generation !== detailGeneration) addBtn.disabled = false; }
         };
         acts.appendChild(readBtn); acts.appendChild(addBtn);
         row.appendChild(acts);
@@ -912,24 +1223,52 @@
   /* ---------- detail ---------- */
   let detailBook = null;
   let detailChapters = [];
+  let detailGeneration = 0;
+  function readingBlocked() {
+    if (accountBusy || loginPending || logoutTarget) { toast("请先完成账号操作", true); return true; }
+    return false;
+  }
+  async function rememberBook(bookId, context) {
+    if (readingBlocked()) throw new Error("账号操作尚未完成");
+    const epoch = accountEpoch;
+    const generation = detailGeneration;
+    const resolved = context || await invoke("resolve_reading_account", { bookId });
+    if (epoch !== accountEpoch || generation !== detailGeneration || (context && context.generation !== detailGeneration)) throw new Error("账号或书籍已变更，请重新打开");
+    if (!resolved.account_id) throw new Error("没有可用于此书的登录账号，请先添加账号");
+    await invoke("remember_book", { bookId, accountId: resolved.account_id });
+    if (epoch !== accountEpoch) throw new Error("账号已变更，请刷新书架确认");
+  }
   async function openDetail(bookId, startItem) {
+    if (readingBlocked()) return;
     nav("detail");
+    const generation = detailGeneration;
     const body = $("#detailBody");
-    body.innerHTML = '<div style="padding:80px;text-align:center;color:var(--text-3)"><span class="spinner"></span>&nbsp; 正在加载书籍…</div>';
+    body.innerHTML = '<div style="padding:80px;text-align:center;color:var(--text-3)"><span class="spinner"></span>&nbsp; 正在选择阅读账号并加载书籍…</div>';
     detailBook = null; detailChapters = [];
+    const valid = () => generation === detailGeneration && current === "detail";
     try {
+      const resolved = await invoke("resolve_reading_account", { bookId });
+      if (!valid()) return;
+      if (!resolved.account_id) throw new Error("没有可用于此书的登录账号，请在账号设置中添加或重新登录");
+      const context = { ...resolved, generation };
       const book = await invoke("book_detail", { bookId });
-      const chapters = await invoke("directory", { bookId }).catch(() => []);
+      if (!valid()) return;
+      const chapters = await invoke("directory", { bookId, accountId: context.account_id });
+      if (!valid()) return;
       detailBook = book;
       detailChapters = chapters || [];
-      renderDetail(book, detailChapters, startItem);
+      // Resume only the resolved account's progress, never another account's merged pointer.
+      const resume = context.last_item_id || (context.chapter_order ? detailChapters.find(c => c.order === context.chapter_order)?.item_id : null);
+      renderDetail(book, detailChapters, resume, context);
     } catch (e) {
-      body.innerHTML = '<div class="empty"><div class="big">⚠</div><p>加载失败</p><p>' + esc(String(e)) + '</p><div style="margin-top:16px"><button class="btn" id="backFromErr">返回</button></div></div>';
-      const b = $("#backFromErr");
-      if (b) b.onclick = goBack;
+      if (!valid()) return;
+      body.innerHTML = '<div class="empty"><p>加载失败</p><p>' + esc(String(e)) + '</p><div class="account-actions" style="justify-content:center;margin-top:16px"><button class="btn" id="retryDetail">重试</button><button class="btn" id="detailAccounts">账号管理</button><button class="btn" id="backFromErr">返回</button></div></div>';
+      $("#retryDetail").onclick = () => openDetail(bookId, null);
+      $("#detailAccounts").onclick = () => nav("account");
+      $("#backFromErr").onclick = goBack;
     }
   }
-  function renderDetail(book, chapters, startItem) {
+  function renderDetail(book, chapters, startItem, context) {
     const body = $("#detailBody");
     body.innerHTML = "";
     const top = el("div", "detail-top");
@@ -944,19 +1283,20 @@
     facts.appendChild(el("span", null, "章节 <b>" + chapters.length + "</b>"));
     if (book.creation_status === 1) facts.appendChild(el("span", null, "<b>已完结</b>"));
     info.appendChild(facts);
+    info.appendChild(el("p", "muted", "阅读账号 · " + esc(context.account_name || context.account_id) + "（优先使用读过本书的账号）"));
     if (book.abstract_text) info.appendChild(el("div", "abs", esc(book.abstract_text)));
     const acts = el("div", "detail-acts");
     const readBtn = el("button", "btn primary", chapters.length ? "开始阅读" : "阅读");
     readBtn.onclick = () => {
-      const target = startItem || (chapters[0] && chapters[0].item_id);
-      if (target) openReader(book, chapters, target);
+      const target = (chapters.some(c => c.item_id === startItem) && startItem) || (chapters[0] && chapters[0].item_id);
+      if (target) openReader(book, chapters, target, context);
       else toast("未获取到章节列表", true);
     };
     const addBtn = el("button", "btn", "加入书架");
     addBtn.onclick = async () => {
       addBtn.disabled = true;
-      try { await invoke("remember_book", { bookId: book.book_id }); addBtn.textContent = "已加入"; toast("已加入本机书架"); }
-      catch (e) { addBtn.disabled = false; toast("加入失败：" + e, true); }
+      try { await rememberBook(book.book_id, context); if (context.generation !== detailGeneration) return; addBtn.textContent = "已加入"; toast("已加入本机书架"); }
+      catch (e) { addBtn.disabled = false; if (context.generation === detailGeneration) toast("加入失败：" + e, true); }
     };
     acts.appendChild(readBtn); acts.appendChild(addBtn);
     info.appendChild(acts);
@@ -981,7 +1321,7 @@
       row.appendChild(el("span", "idx", String(i + 1).padStart(2, "0")));
       row.appendChild(el("span", "title", esc(ch.title || "第" + (i + 1) + "章")));
       if (ch.locked) row.appendChild(el("span", "lock", "VIP"));
-      row.onclick = () => openReader(book, chapters, ch.item_id);
+      row.onclick = () => openReader(book, chapters, ch.item_id, context);
       list.appendChild(row);
     });
     body.appendChild(list);
@@ -1015,12 +1355,30 @@
   }
   applyPrefs();
 
-  function openReader(book, chapters, itemId) {
+  function invalidateReading() {
+    detailGeneration++;
+    readerState = { book: null, chapters: [], index: -1, itemId: null, session: readerState.session + 1 };
+    $("#view-reader").style.display = "none";
+    document.body.classList.remove("reader-mode");
+    readPop.classList.remove("open");
+    $("#readAccount").textContent = "";
+  }
+  async function openReader(book, chapters, itemId, context) {
+    if (readingBlocked() || context.generation !== detailGeneration) return;
+    try {
+      await rememberBook(book.book_id, context);
+    } catch (e) {
+      if (context.generation === detailGeneration) toast("无法保存本书阅读记录：" + e, true);
+      return;
+    }
+    if (context.generation !== detailGeneration) return;
     readerState = {
-      book, chapters, itemId,
+      book, chapters, itemId, context, accountId: context.account_id, request: 0,
       index: chapters.findIndex((c) => c.item_id === itemId),
       session: readerState.session + 1
     };
+    $("#readAccount").textContent = "阅读账号 · " + (context.account_name || context.account_id);
+    $("#readAccount").title = $("#readAccount").textContent;
     document.body.classList.add("reader-mode");
     Object.keys(views).forEach((k) => { views[k].style.display = "none"; });
     $("#view-reader").style.display = "block";
@@ -1031,6 +1389,8 @@
     const st = readerState;
     if (!st.book) return;
     const session = st.session;
+    const request = ++st.request;
+    const valid = () => session === readerState.session && request === st.request;
     st.itemId = itemId;
     const idx = st.chapters.findIndex((c) => c.item_id === itemId);
     if (idx >= 0) st.index = idx;
@@ -1038,8 +1398,9 @@
     readBody.innerHTML = '<div style="text-align:center;padding:80px 0;opacity:.6"><span class="spinner"></span></div>';
     $("#readTitle").textContent = (ch ? ch.title : "") || st.book.name || "";
     try {
-      const data = await invoke("chapter", { bookId: st.book.book_id, itemId });
-      if (session !== readerState.session) return;
+      const data = await invoke("chapter", { bookId: st.book.book_id, itemId, accountId: st.accountId });
+      if (!valid()) return;
+      if (data.need_pay || data.is_lock) throw new Error("当前阅读账号尚未获得本章访问权限，请在官方渠道确认权限");
       const title = data.title || (ch && ch.title) || "";
       let lines = String(data.text || "").split("\n").map((s) => s.trim()).filter(Boolean);
       if (lines.length && lines[0] === title.trim()) lines = lines.slice(1);
@@ -1053,9 +1414,10 @@
       $("#readNext").disabled = st.index >= st.chapters.length - 1;
       readScroll.scrollTop = 0;
       const chNum = (ch && ch.order) || st.index + 1;
-      invoke("set_progress", { bookId: st.book.book_id, itemId, chapterOrder: chNum }).catch(() => {});
+      invoke("set_progress", { bookId: st.book.book_id, itemId, chapterOrder: chNum, accountId: st.accountId })
+        .catch(e => { if (valid()) toast("阅读进度保存失败：" + e, true); });
     } catch (e) {
-      if (session !== readerState.session) return;
+      if (!valid()) return;
       const box = el("div", null, null);
       box.style.cssText = "text-align:center;padding:70px 0;font-family:var(--ui)";
       box.appendChild(el("p", null, "章节加载失败"));
@@ -1079,12 +1441,14 @@
   }
   $("#readPrev").onclick = () => step(-1);
   $("#readNext").onclick = () => step(1);
-  $("#readBack").onclick = goBack;
-  $("#readTocBtn").onclick = () => {
+  function returnToDirectory() {
     const st = readerState;
-    goBack();
-    if (st.book) renderDetail(st.book, st.chapters, st.itemId);
-  };
+    paintBack("detail");
+    if (st.book) renderDetail(st.book, st.chapters, st.itemId, { ...st.context, generation: detailGeneration });
+    else goBack();
+  }
+  $("#readBack").onclick = returnToDirectory;
+  $("#readTocBtn").onclick = returnToDirectory;
 
   $("#readSetBtn").onclick = (e) => { e.stopPropagation(); readPop.classList.toggle("open"); };
   readPop.addEventListener("click", (e) => e.stopPropagation());
@@ -1100,15 +1464,16 @@
 
   document.addEventListener("keydown", (e) => {
     if (document.body.classList.contains("reader-mode")) {
-      if (e.key === "Escape") { readPop.classList.remove("open"); goBack(); }
+      if (e.key === "Escape") { readPop.classList.remove("open"); returnToDirectory(); }
       if (e.key === "ArrowLeft") step(-1);
       if (e.key === "ArrowRight") step(1);
     }
   });
 
   /* ---------- boot ---------- */
-  loadShelf();
-  loadAccount();
+  paintAccounts({ accounts: [], active_id: null });
+  accountsKnown = false;
+  loadAccount().then(() => loadShelf());
 })();
 </script>
 </body>

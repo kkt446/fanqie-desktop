@@ -6,7 +6,9 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use fanqie_core::api::Client;
-use fanqie_core::store::{BookRow, Store};
+mod accounts;
+use accounts::Accounts;
+use fanqie_core::store::BookRow;
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 use tokio::sync::oneshot;
@@ -44,7 +46,8 @@ struct Bridge {
 
 struct AppState {
     client: Mutex<Client>,
-    store: Mutex<Store>,
+    accounts: Mutex<Accounts>,
+    login: Mutex<Option<std::path::PathBuf>>,
     bridge: Bridge,
     signer_ready: AtomicBool,
     seq: AtomicU64,
@@ -69,11 +72,8 @@ struct SignedBody {
 }
 
 fn data_dir() -> std::path::PathBuf {
-    std::path::PathBuf::from(std::env::var("APPDATA").unwrap()).join("fanqie-desktop")
-}
-
-fn cookie_vault_path() -> std::path::PathBuf {
-    data_dir().join("cookies.bin")
+    std::env::var_os("FQ_DATA_DIR").map(std::path::PathBuf::from).unwrap_or_else(||
+        std::path::PathBuf::from(std::env::var("APPDATA").unwrap()).join("fanqie-desktop"))
 }
 
 fn font_hash_from_zhal(zhal: &str) -> Option<String> {
@@ -179,13 +179,7 @@ async fn core_ping(app: AppHandle) -> Result<String, String> {
 #[tauri::command]
 async fn account(app: AppHandle) -> Result<serde_json::Value, String> {
     blocking(&app, |st| {
-        let mut c = st.client.lock().unwrap();
-        let v = c.user_info()?;
-        Ok(serde_json::json!({
-            "name": v.get("name").cloned().unwrap_or_default(),
-            "avatar": v.get("avatar_url").or_else(|| v.get("avatar").or_else(|| v.get("avatarUri"))).cloned().unwrap_or_default(),
-            "raw": v,
-        }))
+        st.accounts.lock().unwrap().current()
     })
     .await
 }
@@ -193,9 +187,7 @@ async fn account(app: AppHandle) -> Result<serde_json::Value, String> {
 #[tauri::command]
 async fn shelf(app: AppHandle) -> Result<serde_json::Value, String> {
     blocking(&app, |st| {
-        let mut c = st.client.lock().unwrap();
-        let books = c.shelf_books()?;
-        Ok(serde_json::to_value(books).unwrap_or_default())
+        Ok(st.accounts.lock().unwrap().books(true)?["books"].clone())
     })
     .await
 }
@@ -216,6 +208,14 @@ async fn community_posts(app: AppHandle) -> Result<serde_json::Value, String> {
         Ok(serde_json::to_value(c.community_posts()?).unwrap_or_default())
     })
     .await
+}
+
+#[tauri::command]
+async fn post_detail(app: AppHandle, book_id: String, post_id: String) -> Result<serde_json::Value, String> {
+    blocking(&app, move |_| {
+        let mut c = Client::new();
+        serde_json::to_value(c.post_detail(&book_id, &post_id)?).map_err(|e| e.to_string())
+    }).await
 }
 
 #[tauri::command]
@@ -247,12 +247,12 @@ async fn book_detail(app: AppHandle, book_id: String) -> Result<serde_json::Valu
 }
 
 #[tauri::command]
-async fn directory(app: AppHandle, book_id: String) -> Result<serde_json::Value, String> {
+async fn directory(app: AppHandle, book_id: String, account_id: Option<String>) -> Result<serde_json::Value, String> {
     blocking(&app, move |st| {
-        let mut c = st.client.lock().unwrap();
-        Ok(serde_json::to_value(c.directory_meta(&book_id)?).unwrap_or_default())
-    })
-    .await
+        let mut a = st.accounts.lock().unwrap();
+        let id = a.route(&book_id, account_id.as_deref())?;
+        a.with_session(&id, |c, _| Ok(serde_json::to_value(c.directory_meta(&book_id)?).unwrap_or_default()))
+    }).await
 }
 
 #[tauri::command]
@@ -260,52 +260,40 @@ async fn chapter(
     app: AppHandle,
     book_id: String,
     item_id: String,
+    account_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
     blocking(&app, move |st| {
-        if let Some((title, text)) = st.store.lock().unwrap().get_chapter(&item_id)? {
-            return Ok(serde_json::json!({
-                "item_id": item_id, "book_id": book_id, "title": title, "text": text,
-                "need_pay": false, "is_lock": false, "cached": true
-            }));
+        let mut a = st.accounts.lock().unwrap();
+        let id = a.route(&book_id, account_id.as_deref())?;
+        if let Some((title, text)) = a.sessions[&id].store.get_chapter_for_book(&book_id, &item_id)? {
+            return Ok(serde_json::json!({"item_id":item_id,"book_id":book_id,"title":title,"text":text,"need_pay":false,"is_lock":false,"cached":true}));
         }
-        let ch = {
-            let mut c = st.client.lock().unwrap();
-            c.chapter(&item_id)?
-        };
-        st.store
-            .lock()
-            .unwrap()
-            .cache_chapter(&ch.item_id, &book_id, &ch.title, &ch.text)?;
-        Ok(serde_json::to_value(&ch).unwrap_or_default())
-    })
-    .await
+        a.with_session(&id, |c, store| {
+            let ch = c.chapter(&item_id)?;
+            if ch.book_id != book_id { return Err("章节与图书不匹配".into()); }
+            if !ch.need_pay && !ch.is_lock { store.cache_chapter(&ch.item_id, &book_id, &ch.title, &ch.text)?; }
+            Ok(serde_json::to_value(ch).unwrap_or_default())
+        })
+    }).await
 }
 
 #[tauri::command]
-async fn remember_book(app: AppHandle, book_id: String) -> Result<(), String> {
+async fn remember_book(app: AppHandle, book_id: String, account_id: Option<String>) -> Result<(), String> {
     blocking(&app, move |st| {
-        let detail = {
-            let mut c = st.client.lock().unwrap();
-            c.book_detail(&book_id)?
-        };
-        st.store.lock().unwrap().remember_book(&BookRow {
-            book_id: detail.book_id,
-            name: detail.name,
-            author: detail.author,
-            thumb: detail.thumb,
-            abstract_text: detail.abstract_text,
-            last_item_id: None,
-            chapter_order: 0,
-        })
-    })
-    .await
+        let mut a = st.accounts.lock().unwrap();
+        let id = a.route(&book_id, account_id.as_deref())?;
+        a.with_session(&id, |c, store| {
+            let d = c.book_detail(&book_id)?;
+            store.remember_book(&BookRow { book_id:d.book_id,name:d.name,author:d.author,thumb:d.thumb,abstract_text:d.abstract_text,last_item_id:None,chapter_order:0 })
+        })?;
+        a.mark_recent(&book_id, &id)
+    }).await
 }
 
 #[tauri::command]
 async fn local_books(app: AppHandle) -> Result<serde_json::Value, String> {
     blocking(&app, |st| {
-        let books = st.store.lock().unwrap().list_books()?;
-        Ok(serde_json::to_value(books).unwrap_or_default())
+        Ok(st.accounts.lock().unwrap().books(false)?["books"].clone())
     })
     .await
 }
@@ -316,14 +304,94 @@ async fn set_progress(
     book_id: String,
     item_id: String,
     chapter_order: i64,
+    account_id: Option<String>,
 ) -> Result<(), String> {
     blocking(&app, move |st| {
-        st.store
-            .lock()
-            .unwrap()
-            .set_progress(&book_id, &item_id, chapter_order)
-    })
-    .await
+        let mut a = st.accounts.lock().unwrap();
+        let id = a.route(&book_id, account_id.as_deref())?;
+        a.sessions[&id].store.set_progress(&book_id, &item_id, chapter_order)?;
+        a.mark_recent(&book_id, &id)
+    }).await
+}
+
+#[tauri::command]
+async fn account_list(app: AppHandle) -> Result<serde_json::Value, String> {
+    blocking(&app, |st| Ok(st.accounts.lock().unwrap().list())).await
+}
+#[tauri::command]
+async fn account_switch(app: AppHandle, account_id: String) -> Result<serde_json::Value, String> {
+    blocking(&app, move |st| st.accounts.lock().unwrap().switch(&account_id)).await
+}
+#[tauri::command]
+async fn account_logout(app: AppHandle, account_id: String) -> Result<serde_json::Value, String> {
+    blocking(&app, move |st| st.accounts.lock().unwrap().logout(&account_id)).await
+}
+#[tauri::command]
+async fn sync_accounts(app: AppHandle) -> Result<serde_json::Value, String> {
+    blocking(&app, |st| st.accounts.lock().unwrap().books(true)).await
+}
+#[tauri::command]
+async fn resolve_reading_account(app: AppHandle, book_id: String) -> Result<serde_json::Value, String> {
+    blocking(&app, move |st| st.accounts.lock().unwrap().resolve(&book_id)).await
+}
+
+#[tauri::command]
+async fn start_login(app: AppHandle) -> Result<(), String> {
+    let handle = app.clone();
+    blocking(&app, move |st| {
+        let mut login = st.login.lock().unwrap();
+        if login.is_some() { return Err("已有登录窗口，请完成或取消本次登录".into()); }
+        let path = data_dir().join("login-profiles").join(accounts::nonce());
+        std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+        let smoke = std::env::var("FQ_SMOKE").as_deref() == Ok("1");
+        let mut builder = tauri::WebviewWindowBuilder::new(&handle, "account-login", tauri::WebviewUrl::External(tauri::Url::parse("https://fanqienovel.com/").unwrap()))
+            .title("番茄小说 · 添加账号").inner_size(1000.0, 760.0).data_directory(path.clone())
+            .visible(false).skip_taskbar(smoke).incognito(true)
+            .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny)
+            .on_navigation(|url| url.scheme() == "https" && url.host_str().map(|h| h == "fanqienovel.com" || h.ends_with(".fanqienovel.com")).unwrap_or(false));
+        if smoke { builder = builder.position(-20000.0, -20000.0); }
+        let win = builder.build().map_err(|e| e.to_string())?;
+        // Closing via the titlebar hides the isolated profile until cancel/finish cleans it.
+        let close_win = win.clone();
+        win.on_window_event(move |event| { if let tauri::WindowEvent::CloseRequested { api, .. } = event { api.prevent_close(); let _ = close_win.hide(); } });
+        *login = Some(path);
+        win.show().map_err(|e| e.to_string())
+    }).await
+}
+fn clean_login(app: &AppHandle, login: &mut Option<std::path::PathBuf>) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("account-login") {
+        win.clear_all_browsing_data().map_err(|_| "无法清除登录窗口会话，请重试取消登录".to_owned())?;
+        win.destroy().map_err(|e| e.to_string())?;
+    }
+    if let Some(path) = login.take() {
+        // WebView2 may retain filesystem handles briefly. Browsing data is already cleared;
+        // fresh random InPrivate profiles are never reused.
+        let _ = std::fs::remove_dir_all(path);
+    }
+    Ok(())
+}
+#[tauri::command]
+async fn cancel_login(app: AppHandle) -> Result<(), String> {
+    let handle = app.clone();
+    blocking(&app, move |st| clean_login(&handle, &mut st.login.lock().unwrap())).await
+}
+#[tauri::command]
+async fn finish_login(app: AppHandle) -> Result<serde_json::Value, String> {
+    let handle = app.clone();
+    blocking(&app, move |st| {
+        let mut login = st.login.lock().unwrap();
+        if login.is_none() { return Err("请先打开官方登录页面".into()); }
+        let win = handle.get_webview_window("account-login").ok_or("登录窗口已关闭，请取消后重试")?;
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() as i64;
+        let cookies = win.cookies().map_err(|_| "无法读取官方登录会话，请重试".to_owned())?.into_iter().filter_map(|c| {
+            let domain = c.domain()?.to_ascii_lowercase();
+            if domain.trim_start_matches('.') != "fanqienovel.com" { return None; }
+            let expires = c.expires_datetime().map(|e| e.unix_timestamp());
+            if expires.is_some_and(|e| e <= now) { return None; }
+            Some(fanqie_core::api::Cookie { name:c.name().to_owned(),value:c.value().to_owned(),domain,path:c.path().unwrap_or("/").to_owned(),expires })
+        }).collect();
+        st.accounts.lock().unwrap().add(fanqie_core::api::CookieJar { cookies }, || clean_login(&handle, &mut login))
+    }).await
 }
 
 #[tauri::command]
@@ -351,18 +419,14 @@ fn main() {
     // FQ_SMOKE=1 → main window off-screen; signer window stays invisible.
     let smoke = std::env::var("FQ_SMOKE").as_deref() == Ok("1");
 
-    let mut client = Client::new();
-    let vault = fanqie_core::vault::Vault::new(cookie_vault_path());
-    if let Ok(Some(json)) = vault.load() {
-        client.restore_cookies(&json);
-    }
-    std::fs::create_dir_all(data_dir()).ok();
-    let store = Store::open(data_dir().join("library.sqlite")).expect("open library");
+    let client = Client::new(); // Always anonymous; never share a login jar with search/signing.
+    let accounts = Accounts::open(data_dir()).expect("open account storage");
 
     tauri::Builder::default()
         .manage(AppState {
             client: Mutex::new(client),
-            store: Mutex::new(store),
+            accounts: Mutex::new(accounts),
+            login: Mutex::new(None),
             bridge: Bridge { pending: Mutex::new(HashMap::new()) },
             signer_ready: AtomicBool::new(false),
             seq: AtomicU64::new(0),
@@ -392,6 +456,7 @@ fn main() {
                 "signer",
                 tauri::WebviewUrl::External(signer_url),
             )
+            .data_directory(data_dir().join("anonymous-signer").join(accounts::nonce()))
             .title("signer")
             .inner_size(420.0, 320.0)
             .visible(false)
@@ -412,9 +477,18 @@ fn main() {
             signer_ready,
             bridge_deliver,
             account,
+            account_list,
+            account_switch,
+            account_logout,
+            start_login,
+            finish_login,
+            cancel_login,
+            sync_accounts,
+            resolve_reading_account,
             shelf,
             home_rails,
             community_posts,
+            post_detail,
             search_books,
             book_detail,
             directory,

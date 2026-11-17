@@ -60,7 +60,16 @@ impl Vault {
         if let Some(dir) = self.path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
         }
-        std::fs::write(&self.path, blob).map_err(|e| e.to_string())
+        use std::{io::Write, os::windows::ffi::OsStrExt};
+        use windows::Win32::Storage::FileSystem::{MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH};
+        let tmp = self.path.with_extension("pending");
+        let mut file = std::fs::File::create(&tmp).map_err(|e| e.to_string())?;
+        file.write_all(&blob).and_then(|_| file.sync_all()).map_err(|e| e.to_string())?;
+        drop(file);
+        let from: Vec<u16> = tmp.as_os_str().encode_wide().chain(Some(0)).collect();
+        let to: Vec<u16> = self.path.as_os_str().encode_wide().chain(Some(0)).collect();
+        unsafe { MoveFileExW(PCWSTR(from.as_ptr()), PCWSTR(to.as_ptr()), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) }
+            .map_err(|e| e.to_string())
     }
 
     pub fn load(&self) -> Result<Option<String>, String> {

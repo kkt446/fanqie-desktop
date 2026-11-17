@@ -183,6 +183,24 @@
           "markdownDescription": "Enables the account command without any pre-configured scope."
         },
         {
+          "description": "Enables the account_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-account-list",
+          "markdownDescription": "Enables the account_list command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the account_logout command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-account-logout",
+          "markdownDescription": "Enables the account_logout command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the account_switch command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-account-switch",
+          "markdownDescription": "Enables the account_switch command without any pre-configured scope."
+        },
+        {
           "description": "Enables the book_detail command without any pre-configured scope.",
           "type": "string",
           "const": "allow-book-detail",
@@ -193,6 +211,12 @@
           "type": "string",
           "const": "allow-bridge-deliver",
           "markdownDescription": "Enables the bridge_deliver command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the cancel_login command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-cancel-login",
+          "markdownDescription": "Enables the cancel_login command without any pre-configured scope."
         },
         {
           "description": "Enables the chapter command without any pre-configured scope.",
@@ -219,6 +243,12 @@
           "markdownDescription": "Enables the directory command without any pre-configured scope."
         },
         {
+          "description": "Enables the finish_login command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-finish-login",
+          "markdownDescription": "Enables the finish_login command without any pre-configured scope."
+        },
+        {
           "description": "Enables the home_rails command without any pre-configured scope.",
           "type": "string",
           "const": "allow-home-rails",
@@ -231,10 +261,22 @@
           "markdownDescription": "Enables the local_books command without any pre-configured scope."
         },
         {
+          "description": "Enables the post_detail command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-post-detail",
+          "markdownDescription": "Enables the post_detail command without any pre-configured scope."
+        },
+        {
           "description": "Enables the remember_book command without any pre-configured scope.",
           "type": "string",
           "const": "allow-remember-book",
           "markdownDescription": "Enables the remember_book command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the resolve_reading_account command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-resolve-reading-account",
+          "markdownDescription": "Enables the resolve_reading_account command without any pre-configured scope."
         },
         {
           "description": "Enables the search_books command without any pre-configured scope.",
@@ -261,6 +303,18 @@
           "markdownDescription": "Enables the signer_ready command without any pre-configured scope."
         },
         {
+          "description": "Enables the start_login command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-start-login",
+          "markdownDescription": "Enables the start_login command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the sync_accounts command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-sync-accounts",
+          "markdownDescription": "Enables the sync_accounts command without any pre-configured scope."
+        },
+        {
           "description": "Enables the win_close command without any pre-configured scope.",
           "type": "string",
           "const": "allow-win-close",
@@ -285,6 +339,24 @@
           "markdownDescription": "Denies the account command without any pre-configured scope."
         },
         {
+          "description": "Denies the account_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-account-list",
+          "markdownDescription": "Denies the account_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the account_logout command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-account-logout",
+          "markdownDescription": "Denies the account_logout command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the account_switch command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-account-switch",
+          "markdownDescription": "Denies the account_switch command without any pre-configured scope."
+        },
+        {
           "description": "Denies the book_detail command without any pre-configured scope.",
           "type": "string",
           "const": "deny-book-detail",
@@ -295,6 +367,12 @@
           "type": "string",
           "const": "deny-bridge-deliver",
           "markdownDescription": "Denies the bridge_deliver command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the cancel_login command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-cancel-login",
+          "markdownDescription": "Denies the cancel_login command without any pre-configured scope."
         },
         {
           "description": "Denies the chapter command without any pre-configured scope.",
@@ -321,6 +399,12 @@
           "markdownDescription": "Denies the directory command without any pre-configured scope."
         },
         {
+          "description": "Denies the finish_login command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-finish-login",
+          "markdownDescription": "Denies the finish_login command without any pre-configured scope."
+        },
+        {
           "description": "Denies the home_rails command without any pre-configured scope.",
           "type": "string",
           "const": "deny-home-rails",
@@ -333,10 +417,22 @@
           "markdownDescription": "Denies the local_books command without any pre-configured scope."
         },
         {
+          "description": "Denies the post_detail command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-post-detail",
+          "markdownDescription": "Denies the post_detail command without any pre-configured scope."
+        },
+        {
           "description": "Denies the remember_book command without any pre-configured scope.",
           "type": "string",
           "const": "deny-remember-book",
           "markdownDescription": "Denies the remember_book command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the resolve_reading_account command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-resolve-reading-account",
+          "markdownDescription": "Denies the resolve_reading_account command without any pre-configured scope."
         },
         {
           "description": "Denies the search_books command without any pre-configured scope.",
@@ -361,6 +457,18 @@
           "type": "string",
           "const": "deny-signer-ready",
           "markdownDescription": "Denies the signer_ready command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the start_login command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-start-login",
+          "markdownDescription": "Denies the start_login command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the sync_accounts command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-sync-accounts",
+          "markdownDescription": "Denies the sync_accounts command without any pre-configured scope."
         },
         {
           "description": "Denies the win_close command without any pre-configured scope.",
