@@ -453,6 +453,18 @@ impl Client {
         Ok(out)
     }
 
+    /// Library page ids. This endpoint obfuscates display text with a per-response
+    /// font, so callers resolve names through `book_detail` (plain text).
+    pub fn library_ids(&mut self, page_index: u32, sort: u32, word_count: i64) -> Result<Vec<String>, String> {
+        let d = self.request_json(&format!(
+            "{BASE}/api/library/book_list/?page_count=18&page_index={page_index}&gender=0&category_id=-1&creation_status=-1&word_count={word_count}&book_type=-1&sort={sort}"
+        ))?;
+        Ok(d.get("book_list")
+            .and_then(|v| v.as_array())
+            .map(|a| a.iter().filter_map(|b| b.get("book_id").and_then(|v| v.as_str()).map(str::to_string)).collect())
+            .unwrap_or_default())
+    }
+
     pub fn shelf_books(&mut self) -> Result<Vec<ShelfBook>, String> {
         let d = self.request_json(&format!(
             "{BASE}/reading/bookapi/bookshelf/info/v1/?device_platform=android&aid=2329"

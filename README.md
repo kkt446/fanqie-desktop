@@ -44,3 +44,9 @@ cargo test --workspace
 这是非官方项目，与番茄小说没有隶属关系。只能显示接口能够获取的书架、阅读记录和评论，不保证包含手机端的全部历史。登录可能失效，届时需要重新登录；受限章节仍以账号权限为准。
 
 目前真实热帖样本返回的评论数为 0，非空评论界面通过模拟数据测试，尚未验证真实社区帖的非空回复和评论分页。新账号的验证码、扫码流程需要实际完成登录后确认。
+
+## 鸣谢
+
+- [msedge-tts](https://github.com/hs-CN/msedge-tts)：听书功能的语音合成实现，使用微软 Edge 在线神经语音，无需 API Key。感谢作者与贡献者。
+- [Tauri](https://github.com/tauri-apps/tauri)：桌面端框架与 WebView2 集成。
+- [rusqlite](https://github.com/rusqlite/rusqlite)：本地书架、进度与章节缓存。

@@ -292,6 +292,132 @@ async fn chapter(
     }).await
 }
 
+const ACCESS_TTL_SECS: i64 = 7 * 24 * 3600;
+
+fn unix_now() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
+
+/// Per-book access profile for the current account: a book with no locked
+/// chapters is fully free; otherwise it has paid/permission-gated chapters.
+#[tauri::command]
+async fn book_access(app: AppHandle, book_id: String, refresh: Option<bool>) -> Result<serde_json::Value, String> {
+    blocking(&app, move |st| {
+        let mut a = st.accounts.lock().unwrap();
+        let id = a.route(&book_id, None)?;
+        if !refresh.unwrap_or(false) {
+            if let Some((total, locked, checked)) = a.sessions[&id].store.get_book_access(&book_id)? {
+                if total > 0 && unix_now() - checked < ACCESS_TTL_SECS {
+                    return Ok(serde_json::json!({"book_id":book_id,"total":total,"locked":locked,"free":locked==0,"cached":true}));
+                }
+            }
+        }
+        let (total, locked) = a.with_session(&id, |c, _| {
+            let metas = c.directory_meta(&book_id)?;
+            Ok((metas.len() as i64, metas.iter().filter(|m| m.locked).count() as i64))
+        })?;
+        if total > 0 {
+            a.sessions[&id].store.set_book_access(&book_id, total, locked)?;
+        }
+        Ok(serde_json::json!({"book_id":book_id,"total":total,"locked":locked,"free":locked==0,"cached":false}))
+    }).await
+}
+
+/// Library page book ids for the free-zone scan. `word_count` 0 selects the
+/// shortest band, where freshly published books tend to sit inside the free
+/// preview allowance.
+#[tauri::command]
+async fn library_ids(app: AppHandle, page: Option<u32>, sort: Option<u32>, word_count: Option<i64>) -> Result<serde_json::Value, String> {
+    blocking(&app, move |st| {
+        let mut a = st.accounts.lock().unwrap();
+        let id = a.route("", None)?;
+        let ids = a.with_session(&id, |c, _| {
+            c.library_ids(page.unwrap_or(0).min(99), sort.unwrap_or(1).min(3), word_count.unwrap_or(0).clamp(0, 4))
+        })?;
+        Ok(serde_json::json!(ids))
+    }).await
+}
+
+const TTS_FORMAT: &str = "audio-24khz-48kbitrate-mono-mp3";
+
+fn tts_voice_label(short: &str) -> Option<&'static str> {
+    Some(match short {
+        "zh-CN-XiaoxiaoNeural" => "晓晓 · 女 · 温柔",
+        "zh-CN-XiaoyiNeural" => "晓伊 · 女 · 活泼",
+        "zh-CN-YunxiNeural" => "云希 · 男 · 阳光",
+        "zh-CN-YunjianNeural" => "云健 · 男 · 浑厚",
+        "zh-CN-YunxiaNeural" => "云夏 · 男 · 少年",
+        "zh-CN-YunyangNeural" => "云扬 · 男 · 播报",
+        "zh-CN-liaoning-XiaobeiNeural" => "晓北 · 女 · 东北腔",
+        "zh-CN-shaanxi-XiaoniNeural" => "晓妮 · 女 · 陕西腔",
+        "zh-HK-HiuMaanNeural" => "曉曼 · 女 · 粤语",
+        "zh-HK-WanLungNeural" => "雲龍 · 男 · 粤语",
+        "zh-TW-HsiaoChenNeural" => "曉臻 · 女 · 台湾腔",
+        "zh-TW-YunJheNeural" => "雲哲 · 男 · 台湾腔",
+        _ => return None,
+    })
+}
+
+/// Curated Chinese voices from the MSEdge Read-aloud backend
+/// (github.com/hs-CN/msedge-tts); no API key, neural quality.
+#[tauri::command]
+async fn tts_voices() -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let voices = msedge_tts::voice::get_voices_list().map_err(|e| e.to_string())?;
+        let mut list: Vec<serde_json::Value> = voices
+            .iter()
+            .filter_map(|v| {
+                let short = v.short_name.as_deref()?;
+                let label = tts_voice_label(short)?;
+                Some(serde_json::json!({"id":short,"label":label,"gender":v.gender,"locale":v.locale}))
+            })
+            .collect();
+        if list.is_empty() {
+            return Err("未能获取中文语音列表".into());
+        }
+        list.sort_by_key(|v| v["id"].as_str().unwrap_or("").to_string());
+        Ok(serde_json::to_value(list).unwrap_or_default())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn tts_speak(text: String, voice: String, rate: Option<i32>) -> Result<String, String> {
+    let chars = text.chars().count();
+    if chars == 0 {
+        return Err("没有可朗读的文本".into());
+    }
+    if chars > 2000 {
+        return Err("朗读片段过长".into());
+    }
+    if !voice.starts_with("zh-") || !voice.contains("Neural") {
+        return Err("不支持的语音".into());
+    }
+    let rate = rate.unwrap_or(0).clamp(-50, 100);
+    tauri::async_runtime::spawn_blocking(move || {
+        use base64::Engine;
+        let config = msedge_tts::tts::SpeechConfig {
+            voice_name: voice,
+            audio_format: TTS_FORMAT.to_string(),
+            pitch: 0,
+            rate,
+            volume: 0,
+        };
+        let mut client = msedge_tts::tts::client::connect().map_err(|e| e.to_string())?;
+        let audio = client.synthesize(&text, &config).map_err(|e| e.to_string())?;
+        if audio.audio_bytes.is_empty() {
+            return Err("语音服务没有返回音频".into());
+        }
+        Ok(base64::engine::general_purpose::STANDARD.encode(audio.audio_bytes))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 async fn remember_book(app: AppHandle, book_id: String, account_id: Option<String>) -> Result<(), String> {
     blocking(&app, move |st| {
@@ -881,6 +1007,10 @@ fn main() {
             book_detail,
             directory,
             chapter,
+            book_access,
+            library_ids,
+            tts_voices,
+            tts_speak,
             remember_book,
             local_books,
             set_progress,

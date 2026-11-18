@@ -31,6 +31,10 @@ impl Store {
                 item_id TEXT PRIMARY KEY, book_id TEXT NOT NULL, title TEXT NOT NULL,
                 text TEXT NOT NULL, fetched_at INTEGER NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS book_access(
+                book_id TEXT PRIMARY KEY, total INTEGER NOT NULL, locked INTEGER NOT NULL,
+                checked_at INTEGER NOT NULL
+            );
             "#,
         )
         .map_err(|e| e.to_string())?;
@@ -133,6 +137,30 @@ impl Store {
         Ok(())
     }
 
+    /// Cached (total chapters, locked chapters, checked_at) for a book.
+    pub fn get_book_access(&self, book_id: &str) -> Result<Option<(i64, i64, i64)>, String> {
+        use rusqlite::OptionalExtension;
+        self.conn
+            .query_row(
+                "SELECT total, locked, checked_at FROM book_access WHERE book_id=?1",
+                params![book_id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .optional()
+            .map_err(|e| e.to_string())
+    }
+
+    pub fn set_book_access(&self, book_id: &str, total: i64, locked: i64) -> Result<(), String> {
+        self.conn
+            .execute(
+                "INSERT INTO book_access(book_id,total,locked,checked_at) VALUES(?1,?2,?3,?4)
+                 ON CONFLICT(book_id) DO UPDATE SET total=excluded.total,locked=excluded.locked,checked_at=excluded.checked_at",
+                params![book_id, total, locked, now()],
+            )
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
     pub fn list_books(&self) -> Result<Vec<BookRow>, String> {
         let mut stmt = self
             .conn
@@ -180,6 +208,13 @@ mod tests {
         assert!(s.set_progress("missing","1",1).is_err());
         s.cache_chapter("20","1","title","text").unwrap();
         assert!(s.get_chapter_for_book("other","20").unwrap().is_none());
+        assert!(s.get_book_access("1").unwrap().is_none());
+        s.set_book_access("1", 120, 0).unwrap();
+        let (total, locked, checked) = s.get_book_access("1").unwrap().unwrap();
+        assert_eq!((total, locked), (120, 0));
+        assert!(checked > 0);
+        s.set_book_access("1", 120, 118).unwrap();
+        assert_eq!(s.get_book_access("1").unwrap().unwrap().1, 118);
     }
 
     #[test]

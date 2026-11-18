@@ -201,6 +201,12 @@
           "markdownDescription": "Enables the account_switch command without any pre-configured scope."
         },
         {
+          "description": "Enables the book_access command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-book-access",
+          "markdownDescription": "Enables the book_access command without any pre-configured scope."
+        },
+        {
           "description": "Enables the book_detail command without any pre-configured scope.",
           "type": "string",
           "const": "allow-book-detail",
@@ -285,6 +291,12 @@
           "markdownDescription": "Enables the home_rails command without any pre-configured scope."
         },
         {
+          "description": "Enables the library_ids command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-library-ids",
+          "markdownDescription": "Enables the library_ids command without any pre-configured scope."
+        },
+        {
           "description": "Enables the local_books command without any pre-configured scope.",
           "type": "string",
           "const": "allow-local-books",
@@ -345,6 +357,18 @@
           "markdownDescription": "Enables the sync_accounts command without any pre-configured scope."
         },
         {
+          "description": "Enables the tts_speak command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-tts-speak",
+          "markdownDescription": "Enables the tts_speak command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the tts_voices command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-tts-voices",
+          "markdownDescription": "Enables the tts_voices command without any pre-configured scope."
+        },
+        {
           "description": "Enables the win_close command without any pre-configured scope.",
           "type": "string",
           "const": "allow-win-close",
@@ -391,6 +415,12 @@
           "type": "string",
           "const": "deny-account-switch",
           "markdownDescription": "Denies the account_switch command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the book_access command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-book-access",
+          "markdownDescription": "Denies the book_access command without any pre-configured scope."
         },
         {
           "description": "Denies the book_detail command without any pre-configured scope.",
@@ -477,6 +507,12 @@
           "markdownDescription": "Denies the home_rails command without any pre-configured scope."
         },
         {
+          "description": "Denies the library_ids command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-library-ids",
+          "markdownDescription": "Denies the library_ids command without any pre-configured scope."
+        },
+        {
           "description": "Denies the local_books command without any pre-configured scope.",
           "type": "string",
           "const": "deny-local-books",
@@ -535,6 +571,18 @@
           "type": "string",
           "const": "deny-sync-accounts",
           "markdownDescription": "Denies the sync_accounts command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the tts_speak command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-tts-speak",
+          "markdownDescription": "Denies the tts_speak command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the tts_voices command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-tts-voices",
+          "markdownDescription": "Denies the tts_voices command without any pre-configured scope."
         },
         {
           "description": "Denies the win_close command without any pre-configured scope.",
