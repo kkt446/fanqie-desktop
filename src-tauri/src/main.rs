@@ -865,10 +865,14 @@ fn main() {
     let client = Client::new(); // Always anonymous; never share a login jar with search/signing.
     let accounts = Accounts::open(data_dir()).expect("open account storage");
 
-    tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+    let mut builder = tauri::Builder::default();
+    if !smoke {
+        // Let an offscreen smoke instance coexist with the user's running window.
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             show_main_window(app);
-        }))
+        }));
+    }
+    builder
         .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(|app, shortcut, event| {
             use tauri_plugin_global_shortcut::ShortcutState;
             if event.state != ShortcutState::Pressed || smoke_mode() { return; }
@@ -922,7 +926,10 @@ fn main() {
             .background_color(tauri::window::Color(13, 15, 19, 255))
             .decorations(false);
             if smoke {
-                w = w.visible(false).focused(false).skip_taskbar(true);
+                // Isolate the WebView2 profile so an offscreen test can run next to
+                // the user's normal desktop instance.
+                w = w.data_directory(data_dir().join("webview"))
+                    .visible(false).focused(false).skip_taskbar(true);
             }
             let win = w.build()?;
             if smoke {

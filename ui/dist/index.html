@@ -183,7 +183,16 @@
   .access-badge.free { background: rgba(24,148,84,.92); color: #f2fff8; }
   .access-badge.paid { background: rgba(206,128,32,.95); color: #241502; }
   .access-badge.pending { background: rgba(20,20,20,.55); color: #cfcfcf; }
-  #freeGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 30px 26px; }
+  #freeGrid, #moreGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 30px 26px; }
+  .more-sec { margin-top: 30px; }
+  .book-card.fresh .cover { animation: fresh-pop .9s ease-out 2; }
+  @keyframes fresh-pop {
+    0% { box-shadow: 0 0 0 0 rgba(24,148,84,.85), 0 12px 26px rgba(0,0,0,.5); }
+    100% { box-shadow: 0 0 0 16px rgba(24,148,84,0), 0 12px 26px rgba(0,0,0,.5); }
+  }
+  .more-sec .sec-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+  .more-sec .sec-head h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: .4px; }
+  .more-sec .sec-head span { font-size: 11.5px; color: var(--text-3); }
 
   /* ---------- search ---------- */
   .searchbox {
@@ -479,7 +488,6 @@
   .re-sw { left: 0; bottom: 0; width: 10px; height: 10px; cursor: nesw-resize; }
   .re-se { right: 0; bottom: 0; width: 10px; height: 10px; cursor: nwse-resize; }
   body.win-maxed .resize-edge { display: none; }
-  body.win-maxed #titlebar .tbtns { padding-right: calc(var(--win-right-bleed, 8px) + 8px); }
 </style>
 </head>
 <body>
@@ -515,6 +523,10 @@
     <div class="nav" data-nav="free">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h11A2.5 2.5 0 0 1 20 8.5v2a2.2 2.2 0 0 0 0 4.4v2A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5v-2a2.2 2.2 0 0 0 0-4.4z"/><path d="M9.5 6v13" stroke-dasharray="2 3"/></svg>
       <span>免费</span>
+    </div>
+    <div class="nav" data-nav="social">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4.5 5.5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9.2L4.5 19.5z" stroke-linejoin="round"/><path d="M8.2 8h7.6M8.2 11.4h4.8" stroke-linecap="round" opacity=".6"/></svg>
+      <span>书友</span>
     </div>
     <div class="nav" data-nav="account">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8.2" r="3.6"/><path d="M4.8 20.2c.7-3.4 3.6-5.2 7.2-5.2s6.5 1.8 7.2 5.2" stroke-linecap="round"/></svg>
@@ -574,6 +586,16 @@
       <p class="muted">汇总书架与书城推荐中「全部章节可免费阅读」的书，按当前账号权限检测；含付费章节的书会出现在其它页面并标注「付费」。</p>
       <p class="muted" id="freeProgress"></p>
       <div id="freeGrid"></div>
+    </section>
+
+    <!-- social -->
+    <section class="view" id="view-social" style="display:none">
+      <div class="page-head">
+        <h1>书友热帖</h1><div class="sub" id="socialSub">来自番茄书荒广场</div>
+        <div class="spacer"></div>
+        <button class="btn ghost" id="socialRefresh">刷新</button>
+      </div>
+      <div class="posts" id="socialFeed"></div>
     </section>
 
     <!-- detail -->
@@ -821,6 +843,7 @@
     shelf: $("#view-shelf"),
     search: $("#view-search"),
     free: $("#view-free"),
+    social: $("#view-social"),
     detail: $("#view-detail"),
     account: $("#view-account"),
     settings: $("#view-settings")
@@ -839,6 +862,7 @@
     if (name === "shelf") loadShelf();
     if (name === "search" && !$("#searchHits").children.length) showDiscover();
     if (name === "free") loadFreeZone();
+    if (name === "social") loadSocial();
     closeAccountMenu();
   }
   function paintBack(back) {
@@ -1206,14 +1230,41 @@
   }
   $("#shelfRefresh").onclick = loadShelf;
 
+  /* ---------- library feed: rotating slices of the online library ---------- */
+  const detailCache = new Map();
+  function bookMeta(id) {
+    if (!detailCache.has(id)) {
+      detailCache.set(id, invoke("book_detail", { bookId: id })
+        .then((d) => ({ book_id: id, name: d.name || "未命名", author: d.author || "", thumb: d.thumb || "", category: d.category || "" }))
+        .catch(() => null));
+    }
+    return detailCache.get(id);
+  }
+  // The library endpoint ignores word_count filters but paginates and supports
+  // sort 1 (default) and 2 (another ordering); rotate those so each visit and
+  // each scroll surfaces unseen books.
+  function libCombo(n) {
+    return { page: Math.floor(n / 2), sort: 1 + (n % 2), word_count: 0 };
+  }
+  async function libraryBatch(n, seen) {
+    let ids = [];
+    try { ids = (await invoke("library_ids", libCombo(n))) || []; } catch (e) {}
+    const fresh = ids.filter((id) => id && !seen.has(id));
+    fresh.forEach((id) => seen.add(id));
+    return fresh;
+  }
+
   /* ---------- free zone ---------- */
-  let freeBusy = false;
-  async function ensureRails() {
-    if (discoverCache) return discoverCache.rails || [];
-    let rails = [];
-    try { rails = (await invoke("home_rails")) || []; } catch (e) {}
-    discoverCache = { rails, posts: [] };
-    return rails;
+  let freeState = null, freeBusy = false;
+  function resetFreeZone() {
+    freeState = { seen: new Set(), found: [], combo: 0, tested: 0, seeded: false, empty: 0, target: 100, done: false };
+    $("#freeGrid").innerHTML = "";
+    $("#freeSub").textContent = "0 本";
+    $("#freeProgress").textContent = "";
+    $("#freeRefresh").textContent = "重新检测";
+  }
+  function freeSubText() {
+    if (freeState) $("#freeSub").textContent = freeState.found.length + " 本免费";
   }
   function freeCard(b) {
     const card = el("div", "book-card");
@@ -1223,59 +1274,69 @@
     card.onclick = () => openDetail(b.book_id, null);
     return card;
   }
-  async function loadFreeZone(force) {
-    if (freeBusy) return;
+  function paintFreeCard(b) {
+    const card = freeCard(b);
+    card.classList.add("fresh");
+    setTimeout(() => card.classList.remove("fresh"), 1900);
+    $("#freeGrid").appendChild(card);
+    freeSubText();
+  }
+  async function scanFreeBatch(force) {
+    if (freeBusy || !freeState || freeState.done) return;
     freeBusy = true;
-    const grid = $("#freeGrid"), sub = $("#freeSub"), prog = $("#freeProgress"), refresh = $("#freeRefresh");
-    grid.innerHTML = "";
+    const prog = $("#freeProgress"), refresh = $("#freeRefresh");
     refresh.disabled = true;
-    sub.textContent = "正在汇总…";
-    prog.textContent = "";
     try {
-      if (!shelfData.length) { try { await loadShelf(); } catch (e) {} }
-      const rails = await ensureRails();
-      const seen = new Set(), books = [];
-      const push = (b) => {
-        if (!b || !b.book_id || !b.name || seen.has(b.book_id)) return;
-        seen.add(b.book_id);
-        books.push(b);
-      };
-      shelfData.forEach(push);
-      (rails || []).forEach((r) => (r.books || []).forEach(push));
-      let libIds = [];
-      try { libIds = (await invoke("library_ids", { page: 0, sort: 1, word_count: 0 })) || []; } catch (e) {}
-      libIds.forEach((id) => { if (id && !seen.has(id)) { seen.add(id); books.push({ book_id: id }); } });
-      if (!books.length) {
-        sub.textContent = "0 本";
-        grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>暂时没有可检测的书籍</p><p>先在书架添加书籍或到书城看看推荐</p></div>';
-        return;
+      let candidates = [];
+      if (!freeState.seeded) {
+        freeState.seeded = true;
+        if (!shelfData.length) { try { await loadShelf(); } catch (e) {} }
+        const rails = await ensureRails();
+        const push = (b) => {
+          if (!b || !b.book_id || !b.name || freeState.seen.has(b.book_id)) return;
+          freeState.seen.add(b.book_id);
+          candidates.push({ book_id: b.book_id, name: b.name, author: b.author || "", thumb: b.thumb || "", category: b.category || "" });
+        };
+        shelfData.forEach(push);
+        (rails || []).forEach((r) => (r.books || []).forEach(push));
       }
-      let done = 0, found = 0;
+      let ids = [], tries = 0;
+      while (!ids.length && tries++ < 3) {
+        ids = await libraryBatch(freeState.combo++, freeState.seen);
+      }
+      if (ids.length) freeState.empty = 0;
+      else freeState.empty++;
+      ids.forEach((id) => candidates.push({ book_id: id }));
       const renderProgress = () => {
-        prog.textContent = "检测中 " + done + " / " + books.length + " 本，已找到 " + found + " 本免费 …";
-        sub.textContent = found + " 本免费";
+        prog.textContent = "已检测 " + freeState.tested + " 本，找到 " + freeState.found.length + " 本免费…";
+        freeSubText();
       };
       renderProgress();
-      await Promise.all(books.map(async (b) => {
+      await Promise.all(candidates.map(async (b) => {
         const info = await bookAccess(b.book_id, !!force);
-        done++;
         if (info && !info.error && info.free) {
-          let card = b.name ? b : null;
-          if (!card) {
-            try {
-              const d = await invoke("book_detail", { bookId: b.book_id });
-              card = { book_id: b.book_id, name: d.name || "未命名", author: d.author || "", thumb: d.thumb || "", category: d.category || "" };
-            } catch (e) {}
-          }
-          if (card) { found++; grid.appendChild(freeCard(card)); }
+          const card = b.name ? b : await bookMeta(b.book_id);
+          if (card) { freeState.found.push(card); paintFreeCard(card); }
         }
+        freeState.tested++;
         renderProgress();
       }));
-      sub.textContent = found + " 本免费";
-      prog.textContent = found
-        ? "共检测 " + books.length + " 本，其中 " + found + " 本全部章节可免费阅读。"
-        : "共检测 " + books.length + " 本，暂无全本免费的书；当前账号在网页来源只能试读前 10 章，含受限章节的书会标注「付费」。";
-      if (!found) grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><p>这次没有找到全本免费的书</p><p>网页来源对大多数书籍只开放前 10 章试读，可稍后重新检测</p></div>';
+      const reached = freeState.found.length >= freeState.target;
+      if (reached) freeState.done = true;
+      const keepScanning = !freeState.done && current === "free";
+      const wrapped = freeState.empty >= 2;
+      if (freeState.empty >= 4) { freeState.combo = 0; freeState.empty = 0; }
+      const summary = freeState.found.length
+        ? "已检测 " + freeState.tested + " 本，其中 " + freeState.found.length + " 本全部章节可免费阅读。"
+        : "已检测 " + freeState.tested + " 本，暂无全本免费的书；网络来源对大多数书籍只开放前 10 章试读。";
+      prog.textContent = summary + (freeState.done
+        ? " 已够 " + freeState.target + " 本，先停在这里；点「继续检测」再往下翻 100 本。"
+        : (keepScanning ? (wrapped ? " 书库已翻完一遍，仍在持续检测…" : " 正在自动继续寻找…") : " 下滑可继续检测。"));
+      if (freeState.done) refresh.textContent = "继续检测";
+      if (keepScanning) setTimeout(() => { if (current === "free" && !freeBusy) scanFreeBatch(false); }, wrapped ? 2000 : 300);
+      if (!freeState.found.length && !candidates.length) {
+        $("#freeGrid").innerHTML = '<div class="empty" style="grid-column:1/-1"><p>暂时没有可检测的书籍</p><p>先在书架添加书籍或到书城看看推荐</p></div>';
+      }
     } catch (e) {
       prog.textContent = "检测失败：" + e;
     } finally {
@@ -1283,35 +1344,93 @@
       freeBusy = false;
     }
   }
-  $("#freeRefresh").onclick = () => loadFreeZone(true);
+  async function loadFreeZone(force) {
+    if (freeBusy) return;
+    if (force || !freeState) resetFreeZone();
+    await scanFreeBatch(force);
+  }
+  $("#freeRefresh").onclick = () => {
+    if (freeState && freeState.done) {
+      freeState.done = false;
+      freeState.target = freeState.found.length + 100;
+      $("#freeRefresh").textContent = "重新检测";
+      loadFreeZone(false);
+    } else loadFreeZone(true);
+  };
 
   /* ---------- search ---------- */
   const searchInput = $("#searchInput");
 
   let discoverCache = null;
-  async function loadDiscover(force) {
-    if (discoverCache && !force) { renderDiscover(discoverCache); return; }
-    const box = $("#discover");
-    box.innerHTML = '<div class="disc-loading"><span class="spinner"></span> 正在加载推荐与书友热帖…</div>';
-    let rails = [], posts = [];
+  let discoverToken = 0;
+  async function ensureRails() {
+    if (discoverCache && discoverCache.rails && discoverCache.rails.length) return discoverCache.rails;
+    let rails = [];
     try { rails = (await invoke("home_rails")) || []; } catch (e) {}
-    try { posts = (await invoke("community_posts")) || []; } catch (e) {}
-    discoverCache = { rails, posts };
-    renderDiscover(discoverCache);
+    if (rails.length) discoverCache = { rails };
+    return rails;
+  }
+  let more = { combo: 0, seen: new Set(), books: [], busy: false, empty: 0 };
+  function moreCard(b) {
+    const card = el("div", "book-card");
+    card.appendChild(bookCover(b.thumb, b.name, b.book_id));
+    card.appendChild(el("div", "t", esc(b.name)));
+    card.appendChild(el("div", "a", esc(b.author || b.category || "")));
+    card.onclick = () => openDetail(b.book_id, null);
+    return card;
+  }
+  function paintMore() {
+    const grid = $("#moreGrid");
+    if (!grid) return;
+    grid.innerHTML = "";
+    more.books.forEach((b) => grid.appendChild(moreCard(b)));
+    const line = $("#moreStatus");
+    if (line) line.textContent = more.busy ? "正在加载更多…" : (more.books.length ? "" : "下滑继续加载");
+  }
+  async function loadMoreBooks() {
+    if (more.busy || more.empty >= 4) return;
+    const state = more;
+    state.busy = true;
+    paintMore();
+    try {
+      let ids = [], tries = 0;
+      while (!ids.length && tries++ < 3) ids = await libraryBatch(state.combo++, state.seen);
+      if (state !== more) return;
+      if (!ids.length) { state.empty++; return; }
+      state.empty = 0;
+      const metas = (await Promise.all(ids.slice(0, 18).map(bookMeta))).filter(Boolean);
+      if (state !== more) return;
+      state.books.push(...metas);
+    } finally {
+      if (state === more) { state.busy = false; paintMore(); }
+    }
+  }
+  async function loadDiscover() {
+    const box = $("#discover");
+    const paint = () => {
+      renderDiscover();
+      box.insertBefore(el("div", "disc-loading", '<span class="spinner"></span> 正在更新推荐…'), box.firstChild);
+    };
+    if (discoverCache) paint();
+    else box.innerHTML = '<div class="disc-loading"><span class="spinner"></span> 正在加载推荐…</div>';
+    const token = ++discoverToken;
+    const rails = await invoke("home_rails").catch(() => null);
+    if (token !== discoverToken) return;
+    if (rails && rails.length) discoverCache = { rails };
+    renderDiscover();
   }
   function showDiscover() {
     $("#discover").style.display = "";
     $("#searchHits").innerHTML = "";
-    loadDiscover(false);
+    more = { combo: 0, seen: new Set(), books: [], busy: false };
+    loadDiscover();
+    loadMoreBooks();
   }
-  function renderDiscover(d) {
+  function renderDiscover() {
     const box = $("#discover");
+    const scrolls = [...box.querySelectorAll(".rail-track")].map((t) => t.scrollLeft);
     box.innerHTML = "";
-    if (!d.rails.length && !d.posts.length) {
-      box.innerHTML = '<div class="empty"><div class="big">⌕</div><p>暂时没有拿到推荐</p><p>直接搜索书名或作者试试</p></div>';
-      return;
-    }
-    d.rails.forEach((rail) => {
+    ((discoverCache && discoverCache.rails) || []).forEach((rail) => {
       const sec = el("div", "disc-sec");
       const head = el("div", "sec-head");
       head.appendChild(el("h2", null, esc(rail.title)));
@@ -1329,73 +1448,108 @@
       sec.appendChild(track);
       box.appendChild(sec);
     });
-    if (d.posts.length) {
-      const sec = el("div", "disc-sec");
-      const head = el("div", "sec-head");
-      head.appendChild(el("h2", null, "书友热帖"));
-      head.appendChild(el("span", null, "来自番茄书荒广场"));
-      sec.appendChild(head);
-      const list = el("div", "posts");
-      d.posts.slice(0, 12).forEach((p) => {
-        const card = el("div", "post-card");
-        card.tabIndex = 0;
-        card.setAttribute("role", "button");
-        card.setAttribute("aria-label", p.user + "的帖子详情");
-        card.onclick = () => openPostDetail(p);
-        card.onkeydown = (e) => {
-          if (e.target === card && e.key === "Enter") { e.preventDefault(); openPostDetail(p); }
-        };
-        const pu = el("div", "pu");
-        if (p.avatar) {
-          const av = el("img", "av");
-          av.src = p.avatar;
-          av.referrerPolicy = "no-referrer";
-          av.onerror = () => av.remove();
-          pu.appendChild(av);
-        }
-        const who = el("div");
-        who.appendChild(el("div", "pn", esc(p.user)));
-        if (p.time) who.appendChild(el("div", "pt", esc(p.time)));
-        pu.appendChild(who);
-        card.appendChild(pu);
-        const txt = el("div", "text", esc(p.text));
-        card.appendChild(txt);
-        if (p.text.length > 200) {
-          txt.classList.add("clamp");
-          const more = el("button", "linkbtn more", "展开全文");
-          more.onclick = (e) => {
-            e.stopPropagation();
-            const open = txt.classList.toggle("clamp");
-            more.textContent = open ? "展开全文" : "收起";
-          };
-          card.appendChild(more);
-        }
-        if (p.books && p.books.length) {
-          const row = el("div", "post-books");
-          p.books.slice(0, 4).forEach((b) => {
-            const chip = el("div", "pb");
-            if (b.cover) {
-              const im = el("img");
-              im.src = b.cover;
-              im.referrerPolicy = "no-referrer";
-              im.onerror = () => im.remove();
-              chip.appendChild(im);
-            }
-            const bi = el("div");
-            bi.appendChild(el("div", "bn", esc(b.name)));
-            if (b.author) bi.appendChild(el("div", "ba", esc(b.author)));
-            chip.appendChild(bi);
-            chip.onclick = (e) => { e.stopPropagation(); openBookByName(b.name); };
-            row.appendChild(chip);
-          });
-          card.appendChild(row);
-        }
-        list.appendChild(card);
-      });
-      sec.appendChild(list);
-      box.appendChild(sec);
-    }
+    box.querySelectorAll(".rail-track").forEach((t, i) => { if (scrolls[i]) t.scrollLeft = scrolls[i]; });
+    const sec = el("div", "disc-sec more-sec");
+    const head = el("div", "sec-head");
+    head.appendChild(el("h2", null, "更多好书"));
+    head.appendChild(el("span", null, "每次进入换一批 · 下滑继续加载"));
+    sec.appendChild(head);
+    const grid = el("div");
+    grid.id = "moreGrid";
+    sec.appendChild(grid);
+    const line = el("p", "muted");
+    line.id = "moreStatus";
+    sec.appendChild(line);
+    box.appendChild(sec);
+    paintMore();
   }
+  $("#view-search").addEventListener("scroll", (e) => {
+    if ($("#discover").style.display === "none") return;
+    const v = e.currentTarget;
+    if (v.scrollTop + v.clientHeight >= v.scrollHeight - 260) loadMoreBooks();
+  });
+  $("#view-free").addEventListener("scroll", (e) => {
+    const v = e.currentTarget;
+    if (v.scrollTop + v.clientHeight >= v.scrollHeight - 260) scanFreeBatch(false);
+  });
+
+  /* ---------- social ---------- */
+  let socialCache = null, socialToken = 0;
+  function renderPosts(feed, posts) {
+    feed.innerHTML = "";
+    posts.slice(0, 18).forEach((p) => {
+      const card = el("div", "post-card");
+      card.tabIndex = 0;
+      card.setAttribute("role", "button");
+      card.setAttribute("aria-label", p.user + "的帖子详情");
+      card.onclick = () => openPostDetail(p);
+      card.onkeydown = (e) => {
+        if (e.target === card && e.key === "Enter") { e.preventDefault(); openPostDetail(p); }
+      };
+      const pu = el("div", "pu");
+      if (p.avatar) {
+        const av = el("img", "av");
+        av.src = p.avatar;
+        av.referrerPolicy = "no-referrer";
+        av.onerror = () => av.remove();
+        pu.appendChild(av);
+      }
+      const who = el("div");
+      who.appendChild(el("div", "pn", esc(p.user)));
+      if (p.time) who.appendChild(el("div", "pt", esc(p.time)));
+      pu.appendChild(who);
+      card.appendChild(pu);
+      const txt = el("div", "text", esc(p.text));
+      card.appendChild(txt);
+      if (p.text.length > 200) {
+        txt.classList.add("clamp");
+        const moreBtn = el("button", "linkbtn more", "展开全文");
+        moreBtn.onclick = (e) => {
+          e.stopPropagation();
+          const open = txt.classList.toggle("clamp");
+          moreBtn.textContent = open ? "展开全文" : "收起";
+        };
+        card.appendChild(moreBtn);
+      }
+      if (p.books && p.books.length) {
+        const row = el("div", "post-books");
+        p.books.slice(0, 4).forEach((b) => {
+          const chip = el("div", "pb");
+          if (b.cover) {
+            const im = el("img");
+            im.src = b.cover;
+            im.referrerPolicy = "no-referrer";
+            im.onerror = () => im.remove();
+            chip.appendChild(im);
+          }
+          const bi = el("div");
+          bi.appendChild(el("div", "bn", esc(b.name)));
+          if (b.author) bi.appendChild(el("div", "ba", esc(b.author)));
+          chip.appendChild(bi);
+          chip.onclick = (e) => { e.stopPropagation(); openBookByName(b.name); };
+          row.appendChild(chip);
+        });
+        card.appendChild(row);
+      }
+      feed.appendChild(card);
+    });
+  }
+  async function loadSocial() {
+    const feed = $("#socialFeed");
+    if (socialCache) renderPosts(feed, socialCache);
+    else feed.innerHTML = '<div class="disc-loading"><span class="spinner"></span> 正在加载书友热帖…</div>';
+    const token = ++socialToken;
+    const posts = await invoke("community_posts").catch(() => null);
+    if (token !== socialToken) return;
+    if (!posts || !posts.length) {
+      if (!socialCache) feed.innerHTML = '<div class="empty"><p>暂时没有拿到热帖</p></div>';
+      return;
+    }
+    socialCache = posts;
+    $("#socialSub").textContent = posts.length + " 条 · 来自番茄书荒广场";
+    renderPosts(feed, posts);
+  }
+  $("#socialRefresh").onclick = () => loadSocial();
   let postRequest = 0;
   const postDialog = document.createElement('dialog');
   postDialog.id = 'postDialog';
